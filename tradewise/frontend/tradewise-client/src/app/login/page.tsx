@@ -1,110 +1,146 @@
-// This tells Next.js to run this component on the client
-'use client'; 
+"use client"
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // Import the router
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { TrendingUp, AlertCircle, CheckCircle } from "lucide-react"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const router = useRouter(); // Initialize the router for redirection
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [message, setMessage] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [messageType, setMessageType] = useState<"success" | "error" | null>(null)
+  const router = useRouter()
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setMessage('');
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMessage("")
+    setIsLoading(true)
 
     try {
-      const res = await fetch('http://localhost:8000/api/auth/login', {
-        method: 'POST',
+      const res = await fetch("http://localhost:8000/api/auth/login", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
-      });
+      })
 
       if (res.ok) {
-        // 1. Get the JSON response
-        const data = await res.json();
-        
-        // 2. Save the token to localStorage
-        localStorage.setItem('token', data.token);
-
-        // 3. Set a success message and redirect
-        setMessage('Login successful! Redirecting...');
-        
-        // Redirect to the dashboard (we'll create this next)
-        router.push('/dashboard'); 
-
+        const data = await res.json()
+        localStorage.setItem("token", data.token)
+        setMessage("Login successful! Redirecting...")
+        setMessageType("success")
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 1500)
       } else {
-        // Handle errors
-        const errorMessage = await res.text();
-        setMessage(`Error: ${errorMessage}`);
+        const errorMessage = await res.text()
+        setMessage(`Error: ${errorMessage}`)
+        setMessageType("error")
       }
     } catch (error) {
-      console.error('Login error:', error);
-      setMessage('Error: Failed to connect to the server.');
+      console.error("Login error:", error)
+      setMessage("Error: Failed to connect to the server.")
+      setMessageType("error")
+    } finally {
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center">
-      <div className="w-full max-w-md p-8 bg-gray-800 rounded-lg shadow-md">
-        <h2 className="text-3xl font-bold text-center mb-6">Login to TradeWise</h2>
-        
-        <form onSubmit={handleSubmit}>
-          {/* Email Input */}
-          <div className="mb-4">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-3 py-2 bg-gray-700 text-white rounded-md border border-gray-600 focus:outline-none focus:border-blue-500"
-            />
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <Card className="w-full max-w-md border border-border shadow-lg">
+        <CardHeader className="space-y-1 text-center">
+          <div className="flex justify-center mb-4">
+            <div className="p-3 rounded-full bg-primary/10">
+              <TrendingUp className="h-8 w-8 text-primary" />
+            </div>
           </div>
+          <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+          <CardDescription>
+            Enter your credentials to access your TradeWise portfolio
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm font-medium">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={isLoading}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Password
+                </Label>
+                <Link
+                  href="#"
+                  className="text-xs text-primary hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={isLoading}
+                className="h-10"
+              />
+            </div>
 
-          {/* Password Input */}
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-3 py-2 bg-gray-700 text-white rounded-md border border-gray-600 focus:outline-none focus:border-blue-500"
-            />
-          </div>
+            {message && (
+              <div
+                className={`flex items-center gap-2 rounded-md p-3 text-sm ${
+                  messageType === "success"
+                    ? "bg-green-500/10 text-green-600"
+                    : "bg-red-500/10 text-red-600"
+                }`}
+              >
+                {messageType === "success" ? (
+                  <CheckCircle className="h-4 w-4" />
+                ) : (
+                  <AlertCircle className="h-4 w-4" />
+                )}
+                <span>{message}</span>
+              </div>
+            )}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition duration-200"
-          >
-            Login
-          </button>
-        </form>
-
-        {/* Display success/error messages */}
-        {message && (
-          <p className="text-center mt-4 text-sm text-gray-300">{message}</p>
-        )}
-
-        <p className="text-center mt-6 text-sm">
-          No account?{' '}
-          <Link href="/register" className="text-blue-400 hover:text-blue-300">
-            Register
-          </Link>
-        </p>
-      </div>
+            <Button type="submit" className="w-full h-10" disabled={isLoading}>
+              {isLoading ? "Signing in..." : "Sign In"}
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-4 border-t border-border pt-6">
+          <p className="text-center text-sm text-muted-foreground">
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-primary hover:underline"
+            >
+              Sign up
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
     </div>
-  );
+  )
 }

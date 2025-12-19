@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
 import { WebSocketProvider } from './context/WebSocketContext';
-import { Toaster } from 'react-hot-toast'; // <-- 1. IMPORT TOASTER
-import NotificationHandler from './components/NotificationHandler'; // <-- 1. IMPORT HANDLER
+import { Toaster } from 'react-hot-toast';
+import NotificationHandler from './components/NotificationHandler';
 import Script from 'next/script';
 
 const geistSans = Geist({
@@ -17,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TradeWise", // Updated title
-  description: "Real-Time Investment & Portfolio Analytics Platform", // Updated desc
+  title: "TradeWise",
+  description: "Real-Time Investment & Portfolio Analytics Platform",
 };
 
 export default function RootLayout({
@@ -27,7 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head />
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -47,14 +49,18 @@ export default function RootLayout({
             }catch(e){/* noop */}
           })();`}
         </Script>
-        <WebSocketProvider>
-          {/* --- 2. ADD TOASTER & HANDLER --- */}
-          <Toaster position="top-right" />
-          <NotificationHandler />
-          {/* --- END ADDITION --- */}
-          
-          {children}
-        </WebSocketProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <WebSocketProvider>
+            <Toaster position="top-right" />
+            <NotificationHandler />
+            {children}
+          </WebSocketProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
