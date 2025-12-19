@@ -141,21 +141,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* PORTFOLIO PERFORMANCE CHART SECTION */}
-      <div className="grid gap-4 md:gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Portfolio Performance</CardTitle>
-            <CardDescription>
-              Visualizing your asset growth over time
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <OverviewChart />
-          </CardContent>
-        </Card>
-      </div>
-
       {/* PORTFOLIO AND ACTIVITY SECTION */}
       <div className="grid gap-4 md:gap-8 lg:grid-cols-3">
         <Card className="xl:col-span-2">
@@ -166,6 +151,9 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <OverviewChart />
+            </div>
             <div className="space-y-4">
               {portfolios.length > 0 ? (
                 portfolios.map((portfolio) => (
