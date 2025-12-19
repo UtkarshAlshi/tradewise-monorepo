@@ -1,0 +1,1 @@
+{"timestamp":"2025-11-16T14:17:27.500861","status":400,"error":"Bad Request","message":"Required request body is missing: public org.springframework.http.ResponseEntity<com.tradewise.userservice.dto.response.UserResponse> com.tradewise.userservice.controller.AuthController.registerUser(com.tradewise.userservice.dto.RegisterRequest)","path":"/api/auth/register"}
