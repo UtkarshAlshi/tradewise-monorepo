@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, Activity, CreditCard, Users } from "lucide-react"
+import { OverviewChart } from "@/components/overview-chart"
 
 // --- Define Types for our data ---
 interface User {
@@ -136,6 +137,21 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">+5</div>
             <p className="text-xs text-muted-foreground">Since last login</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* PORTFOLIO PERFORMANCE CHART SECTION */}
+      <div className="grid gap-4 md:gap-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Portfolio Performance</CardTitle>
+            <CardDescription>
+              Visualizing your asset growth over time
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pl-2">
+            <OverviewChart />
           </CardContent>
         </Card>
       </div>
