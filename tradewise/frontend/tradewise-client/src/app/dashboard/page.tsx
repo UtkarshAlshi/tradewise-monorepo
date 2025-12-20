@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, Activity, CreditCard, Users } from "lucide-react"
 import { OverviewChart } from "@/components/overview-chart"
+import { API_BASE_URL } from "@/lib/utils"
 
 // --- Define Types for our data ---
 interface User {
@@ -38,7 +39,7 @@ export default function DashboardPage() {
     const fetchData = async () => {
       try {
         // --- Fetch User Data (with headers) ---
-        const userRes = await fetch("http://localhost:8000/api/users/me", {
+        const userRes = await fetch(`${API_BASE_URL}/api/users/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -49,7 +50,7 @@ export default function DashboardPage() {
         setUser(userData)
 
         // --- Fetch Portfolios (with headers) ---
-        const portfoliosRes = await fetch("http://localhost:8000/api/portfolios", {
+        const portfoliosRes = await fetch(`${API_BASE_URL}/api/portfolios`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

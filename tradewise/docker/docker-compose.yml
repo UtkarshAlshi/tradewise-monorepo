@@ -1,0 +1,111 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: tradewise_user
+      POSTGRES_PASSWORD: tradewise_pass
+    volumes:
+      - ./postgres-init:/docker-entrypoint-initdb.d
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  api-gateway:
+    build:
+      context: ../backend/api-gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - user-service
+      - portfolio-service
+      - strategy-service
+      - market-data-service
+      - backtesting-service
+      - notification-service
+    environment:
+      - tradewise.app.jwtSecret=EaW7nZJ3p6v9y$B&E)H@McQfTjWnZr4u7x!A%D*G-KaPdSgUkXp2s5v8y/B?E(H+
+      - SPRING_PROFILES_ACTIVE=local
+
+  user-service:
+    build:
+      context: ../backend/user-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tradewise_user_db
+      - SPRING_DATASOURCE_USERNAME=tradewise_user
+      - SPRING_DATASOURCE_PASSWORD=tradewise_pass
+      - tradewise.app.jwtSecret=EaW7nZJ3p6v9y$B&E)H@McQfTjWnZr4u7x!A%D*G-KaPdSgUkXp2s5v8y/B?E(H+
+
+  portfolio-service:
+    build:
+      context: ../backend/portfolio-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tradewise_portfolio_db
+      - SPRING_DATASOURCE_USERNAME=tradewise_user
+      - SPRING_DATASOURCE_PASSWORD=tradewise_pass
+
+  strategy-service:
+    build:
+      context: ../backend/strategy-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tradewise_strategy_db
+      - SPRING_DATASOURCE_USERNAME=tradewise_user
+      - SPRING_DATASOURCE_PASSWORD=tradewise_pass
+
+  market-data-service:
+    build:
+      context: ../backend/market-data-service
+    ports:
+      - "8084:8084"
+    environment:
+      - FINNHUB_API_KEY=demo
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+
+  backtesting-service:
+    build:
+      context: ../backend/backtesting-service
+    ports:
+      - "8085:8085"
+    environment:
+      - STRATEGY_SERVICE_HOST=strategy-service:8083
+      - MARKET_DATA_SERVICE_HOST=market-data-service:8084
+
+  notification-service:
+    build:
+      context: ../backend/notification-service
+    ports:
+      - "8086:8086"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tradewise_notification_db
+      - SPRING_DATASOURCE_USERNAME=tradewise_user
+      - SPRING_DATASOURCE_PASSWORD=tradewise_pass
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+
+volumes:
+  postgres-data: {}

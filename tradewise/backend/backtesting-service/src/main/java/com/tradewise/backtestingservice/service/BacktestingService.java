@@ -34,10 +34,20 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+
 @Service
 public class BacktestingService {
 
     private final RestTemplate restTemplate;
+    
+    // Service URLs (use environment variables for Docker compatibility)
+    private static final String STRATEGY_SERVICE_HOST = System.getenv().getOrDefault("STRATEGY_SERVICE_HOST", "localhost:8083");
+    private static final String MARKET_DATA_SERVICE_HOST = System.getenv().getOrDefault("MARKET_DATA_SERVICE_HOST", "localhost:8084");
 
     public BacktestingService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -47,9 +57,21 @@ public class BacktestingService {
      * Main method to run the backtest.
      */
     public BacktestReportResponse runBacktest(BacktestRequest request, String userEmail) {
-        // 1. Fetch Strategy via HTTP from strategy-service
-        String strategyUrl = "http://localhost:8083/api/strategies/" + request.getStrategyId() + "/internal";
-        Strategy strategy = restTemplate.getForObject(strategyUrl, Strategy.class);
+        // Prepare headers for authenticated requests
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-User-Email", userEmail);
+        
+        // 1. Fetch Strategy via HTTP from strategy-service with authentication header
+        String strategyUrl = "http://" + STRATEGY_SERVICE_HOST + "/api/strategies/" + request.getStrategyId() + "/internal";
+        HttpEntity<Void> strategyEntity = new HttpEntity<>(headers);
+        ResponseEntity<Strategy> strategyResponse = restTemplate.exchange(
+            strategyUrl, 
+            HttpMethod.GET, 
+            strategyEntity, 
+            Strategy.class
+        );
+        Strategy strategy = strategyResponse.getBody();
 
         // --- CRITICAL SECURITY CHECK ---
         if (!strategy.getUserEmail().equals(userEmail)) {
@@ -58,10 +80,17 @@ public class BacktestingService {
 
         // 2. Fetch Historical Data via HTTP from market-data-service
         String dataUrl = String.format(
-            "http://localhost:8084/api/market-data/history/internal?symbol=%s&startDate=%s&endDate=%s",
+            "http://" + MARKET_DATA_SERVICE_HOST + "/api/market-data/history/internal?symbol=%s&startDate=%s&endDate=%s",
             request.getSymbol(), request.getStartDate(), request.getEndDate()
         );
-        BarSeries barSeries = restTemplate.getForObject(dataUrl, BaseBarSeries.class);
+        HttpEntity<Void> dataEntity = new HttpEntity<>(headers);
+        ResponseEntity<BaseBarSeries> dataResponse = restTemplate.exchange(
+            dataUrl,
+            HttpMethod.GET,
+            dataEntity,
+            BaseBarSeries.class
+        );
+        BarSeries barSeries = dataResponse.getBody();
 
         // 3. Build ta4j Strategy from our DB entities
         BaseStrategy ta4jStrategy = buildTa4jStrategy(strategy, barSeries);

@@ -1,107 +1,37 @@
-import { DashboardNav } from "@/components/dashboard-nav"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, TrendingUp } from "lucide-react"
-import Link from "next/link"
+import { Metadata } from "next"
+import { SidebarNav, dashboardNavItems } from "@/components/sidebar-nav"
+import { Separator } from "@/components/ui/separator"
+import { ThemeToggle } from "@/components/theme-toggle"
 
-export default function DashboardLayout({
-  children,
-}: {
+export const metadata: Metadata = {
+  title: "Dashboard | TradeWise",
+  description: "Manage your portfolios and strategies.",
+}
+
+interface DashboardLayoutProps {
   children: React.ReactNode
-}) {
+}
+
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      {/* 1. DESKTOP SIDEBAR - Hidden on mobile, fixed on desktop */}
-      <div className="hidden border-r bg-muted/40 md:block md:w-64 lg:w-72">
-        <div className="flex h-full max-h-screen flex-col gap-2">
-          <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
-              <TrendingUp className="h-6 w-6 text-primary" />
-              <span className="">TradeWise</span>
-            </Link>
-          </div>
-          <div className="flex-1 overflow-auto py-2">
-            <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-              <DashboardNav />
-            </nav>
-          </div>
+    <div className="hidden space-y-6 p-10 pb-16 md:block">
+      <div className="flex items-center justify-between space-y-0.5">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">TradeWise Dashboard</h2>
+          <p className="text-muted-foreground">
+            Manage your investments, track performance, and automate strategies.
+          </p>
+        </div>
+        <div className="flex items-center space-x-4">
+            <ThemeToggle />
         </div>
       </div>
-
-      {/* 2. MAIN CONTENT AREA */}
-      <div className="flex flex-col flex-1">
-        {/* HEADER */}
-        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          {/* Mobile Menu Trigger */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0 md:hidden"
-              >
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle navigation menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col">
-              <nav className="grid gap-2 text-lg font-medium">
-                <Link
-                  href="/"
-                  className="flex items-center gap-2 text-lg font-semibold mb-4"
-                >
-                  <TrendingUp className="h-6 w-6 text-primary" />
-                  <span>TradeWise</span>
-                </Link>
-                <DashboardNav />
-              </nav>
-            </SheetContent>
-          </Sheet>
-
-          {/* Header Actions (Search / Profile) */}
-          <div className="w-full flex-1">
-            {/* Add Search Input here later if needed */}
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="rounded-full"
-              >
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="/placeholder-user.jpg" alt="User" />
-                  <AvatarFallback>JD</AvatarFallback>
-                </Avatar>
-                <span className="sr-only">Toggle user menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem>Support</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </header>
-
-        {/* PAGE CONTENT */}
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
-          {children}
-        </main>
+      <Separator className="my-6" />
+      <div className="flex flex-col space-y-8 lg:flex-row lg:space-x-12 lg:space-y-0">
+        <aside className="-mx-4 lg:w-1/5">
+          <SidebarNav items={dashboardNavItems} />
+        </aside>
+        <div className="flex-1 lg:max-w-4xl">{children}</div>
       </div>
     </div>
   )

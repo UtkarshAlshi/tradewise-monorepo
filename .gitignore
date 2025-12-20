@@ -13,6 +13,11 @@ dist/
 build/
 .env.local
 
+# --- Python / Virtual Env ---
+.venv/
+venv/
+__pycache__/
+
 # --- IDE Settings ---
 .idea/
 .vscode/
