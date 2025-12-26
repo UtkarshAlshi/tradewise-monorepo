@@ -94,15 +94,3 @@ You can run the entire infrastructure (Databases, Kafka, Zookeeper, and 7 Micros
 *   [ ] Kubernetes (K8s) deployment configuration.
 
 ---
-
-## 📝 Final Assignment for You
-
-You have built something impressive. To maximize its value for your career:
-
-1.  **Record a Demo Video:** Use software like OBS or Loom. Record your screen for 60 seconds:
-    *   Show the Docker logs scrolling (proves it's real code).
-    *   Log in to the frontend.
-    *   Create a Strategy.
-    *   See the "Success" notification.
-2.  **Upload this video to YouTube** and link it at the very top of your README.
-3.  **Pin it:** Pin this repository to your GitHub profile.
