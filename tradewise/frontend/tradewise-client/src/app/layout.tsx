@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { WebSocketProvider } from './context/WebSocketContext';
+import { WebSocketProvider } from '@/app/context/WebSocketContext';
 import { Toaster } from 'react-hot-toast';
-import NotificationHandler from './components/NotificationHandler';
-import Script from 'next/script';
+import NotificationHandler from '@/components/notification-handler';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,23 +32,8 @@ export default function RootLayout({
       <head />
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        suppressHydrationWarning={true}
       >
-        {/* Strip known extension attributes (e.g. Grammarly) before React hydrates to avoid hydration errors */}
-        <Script id="strip-extension-attrs" strategy="beforeInteractive">
-          {`(function(){
-            try{
-              var attrs = ['data-new-gr-c-s-check-loaded','data-gr-ext-installed'];
-              attrs.forEach(function(a){
-                if (document.documentElement && document.documentElement.hasAttribute && document.documentElement.hasAttribute(a)) {
-                  document.documentElement.removeAttribute(a);
-                }
-                if (document.body && document.body.hasAttribute && document.body.hasAttribute(a)) {
-                  document.body.removeAttribute(a);
-                }
-              });
-            }catch(e){/* noop */}
-          })();`}
-        </Script>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

@@ -26,7 +26,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         // 2. Use SockJS as the transport and connect to the API Gateway.
         // Prefer NEXT_PUBLIC_API_URL when set, otherwise default to http://localhost:8000 (API Gateway)
         try {
-          const envBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'; // Changed to 8000
+          const envBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'; // Reverted to 8000
           const base = envBase.replace(/\/$/, '');
           if (typeof window !== 'undefined') {
             const token = localStorage.getItem('token');
@@ -37,7 +37,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           }
           return new SockJS(`${base}/ws`);
         } catch (err) {
-          const fallback = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'; // Changed to 8000
+          const fallback = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'; // Reverted to 8000
           return new SockJS(`${fallback.replace(/\/$/, '')}/ws`);
         }
       },

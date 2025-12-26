@@ -27,54 +27,52 @@ export function OverviewChart() {
   const axisColor = isDark ? "#9aa7b2" : "#6b7280"
 
   return (
-    <div style={{ width: '100%', height: 300 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data}>
-          <defs>
-            <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.28}/>
-              <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-            </linearGradient>
-          </defs>
+    <ResponsiveContainer width="100%" height={300}>
+      <AreaChart data={data}>
+        <defs>
+          <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.28}/>
+            <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+          </linearGradient>
+        </defs>
 
-          <XAxis
-            dataKey="name"
-            stroke={axisColor}
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-          />
+        <XAxis
+          dataKey="name"
+          stroke={axisColor}
+          fontSize={12}
+          tickLine={false}
+          axisLine={false}
+        />
 
-          <YAxis
-            stroke={axisColor}
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={(value) => `$${value.toLocaleString()}`}
-          />
+        <YAxis
+          stroke={axisColor}
+          fontSize={12}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(value) => `$${value.toLocaleString()}`}
+        />
 
-          <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={gridStroke} />
+        <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={gridStroke} />
 
-          <Tooltip
-            contentStyle={{
-              backgroundColor: isDark ? '#0f1724' : '#ffffff',
-              border: 'none',
-              borderRadius: 8,
-              color: isDark ? '#fff' : '#000'
-            }}
-            itemStyle={{ color: '#22c55e' }}
-          />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: isDark ? '#0f1724' : '#ffffff',
+            border: 'none',
+            borderRadius: 8,
+            color: isDark ? '#fff' : '#000'
+          }}
+          itemStyle={{ color: '#22c55e' }}
+        />
 
-          <Area
-            type="monotone"
-            dataKey="total"
-            stroke="#22c55e"
-            strokeWidth={2}
-            fillOpacity={1}
-            fill="url(#colorTotal)"
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
+        <Area
+          type="monotone"
+          dataKey="total"
+          stroke="#22c55e"
+          strokeWidth={2}
+          fillOpacity={1}
+          fill="url(#colorTotal)"
+        />
+      </AreaChart>
+    </ResponsiveContainer>
   )
 }

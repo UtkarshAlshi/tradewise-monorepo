@@ -152,7 +152,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4">
+            <div className="h-[350px] w-full">
               <OverviewChart />
             </div>
             <div className="space-y-4">
