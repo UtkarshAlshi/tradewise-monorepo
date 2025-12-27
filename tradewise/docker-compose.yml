@@ -117,6 +117,7 @@ services:
     ports:
       - "8086:8086"
     environment:
+      - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tradewise_notification_db
       - SPRING_DATASOURCE_USERNAME=tradewise_user
       - SPRING_DATASOURCE_PASSWORD=tradewise_pass
