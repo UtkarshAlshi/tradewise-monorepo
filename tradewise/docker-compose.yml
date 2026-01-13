@@ -17,7 +17,7 @@ services:
       - "5433:5432" # Mapped to 5433 to avoid conflict with local Postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
   kafka:
     image: confluentinc/cp-kafka:latest
