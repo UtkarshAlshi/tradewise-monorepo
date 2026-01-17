@@ -21,7 +21,7 @@ WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
 # Expose the port (This is just documentation, docker-compose handles the mapping)
-EXPOSE 8080
+EXPOSE 8087
 
 # Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]

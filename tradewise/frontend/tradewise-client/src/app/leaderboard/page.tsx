@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { API_BASE_URL } from '@/lib/utils'; // <-- Import API_BASE_URL
 
 // --- Define Types ---
 interface LeaderboardEntry {
@@ -19,7 +20,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/leaderboard');
+        const res = await fetch(`${API_BASE_URL}/api/leaderboard`); // <-- Use API_BASE_URL
         if (!res.ok) {
           throw new Error('Failed to fetch leaderboard data');
         }

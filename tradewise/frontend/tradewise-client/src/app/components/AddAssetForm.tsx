@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { API_BASE_URL } from '@/lib/utils'; // <-- Import API_BASE_URL
 
 // Define the component's props
 interface AddAssetFormProps {
@@ -33,7 +34,7 @@ export default function AddAssetForm({ portfolioId, onAssetAdded }: AddAssetForm
 
     try {
       const res = await fetch(
-        `http://localhost:8000/api/portfolios/${portfolioId}/assets`,
+        `${API_BASE_URL}/api/portfolios/${portfolioId}/assets`, // <-- Use API_BASE_URL
         {
           method: 'POST',
           headers: {

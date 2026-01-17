@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { API_BASE_URL } from '@/lib/utils';
 
-// --- 1. Define Types ---
+// --- 1. Define Frontend Types (must match backend DTOs) ---
 interface StrategyCondition {
   indicatorA: string;
   indicatorAParams: { [key: string]: any };
@@ -163,7 +164,7 @@ export default function NewStrategyPage() {
     }
 
     try {
-      const res = await fetch('http://localhost:8000/api/strategies', {
+      const res = await fetch(`${API_BASE_URL}/api/strategies`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,7 +200,6 @@ export default function NewStrategyPage() {
 
       <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
         {/* --- Strategy Details --- */}
-        {/* ... (Same as before) ... */}
         <div className="bg-gray-800 p-6 rounded-lg shadow-md mb-8">
           <div className="mb-4">
             <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">

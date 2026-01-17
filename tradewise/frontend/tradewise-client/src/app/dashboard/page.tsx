@@ -6,6 +6,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DollarSign, Activity, CreditCard, Users } from "lucide-react"
 import { OverviewChart } from "@/components/overview-chart"
 import { API_BASE_URL } from "@/lib/utils"
+import { z } from "zod"
+import Link from "next/link"
+
+// --- Define Zod Schemas ---
+const PortfolioSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  createdAt: z.string(),
+  userEmail: z.string(),
+})
+
+const StrategySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  createdAt: z.string(),
+  userEmail: z.string(),
+})
 
 // --- Define Types for our data ---
 interface User {
@@ -14,18 +33,14 @@ interface User {
   createdAt: string
 }
 
-interface Portfolio {
-  id: string
-  name: string
-  description: string
-  createdAt: string
-  userId: string
-}
+type Portfolio = z.infer<typeof PortfolioSchema>
+type Strategy = z.infer<typeof StrategySchema>
 
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
+  const [strategies, setStrategies] = useState<Strategy[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
@@ -38,32 +53,40 @@ export default function DashboardPage() {
 
     const fetchData = async () => {
       try {
-        // --- Fetch User Data (with headers) ---
+        // 1. Fetch User Data
         const userRes = await fetch(`${API_BASE_URL}/api/users/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         })
-
+        if (userRes.status === 401 || userRes.status === 403) {
+          localStorage.removeItem("token")
+          router.push("/login")
+          return
+        }
         if (!userRes.ok) throw new Error("Failed to fetch user data")
         const userData = await userRes.json()
         setUser(userData)
 
-        // --- Fetch Portfolios (with headers) ---
+        // 2. Fetch Portfolios (Real Data)
         const portfoliosRes = await fetch(`${API_BASE_URL}/api/portfolios`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         })
-
         if (!portfoliosRes.ok) throw new Error("Failed to fetch portfolios")
         const portfoliosData = await portfoliosRes.json()
-        setPortfolios(portfoliosData)
+        const validatedPortfolios = z.array(PortfolioSchema).parse(portfoliosData)
+        setPortfolios(validatedPortfolios)
+
+        // 3. Fetch Strategies (Real Data)
+        const strategiesRes = await fetch(`${API_BASE_URL}/api/strategies`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!strategiesRes.ok) throw new Error("Failed to fetch strategies")
+        const strategiesData = await strategiesRes.json()
+        const validatedStrategies = z.array(StrategySchema).parse(strategiesData)
+        setStrategies(validatedStrategies)
+
       } catch (err: any) {
+        console.error("Data validation or fetch error:", err)
         setError(err.message)
-        // If token is invalid, backend sends 401/403, we should log out
-        localStorage.removeItem("token")
-        router.push("/login")
       } finally {
         setLoading(false)
       }
@@ -71,6 +94,23 @@ export default function DashboardPage() {
 
     fetchData()
   }, [router])
+
+  // --- Derived Metrics (Real Counts) ---
+  const totalPortfolios = portfolios.length
+  const activeStrategies = strategies.length // Assuming all fetched strategies are active for now
+  const pausedStrategies = 0 // We don't have status in StrategyResponse yet
+
+  // --- Mock Data for Valuation (Placeholder until Market Data Service integration) ---
+  const totalBalance = 0.00 // We can't calculate this without asset prices
+  const balanceChangePercent = 0.00
+  const unreadNotifications = 0 // Notification service integration needed
+  
+  // Placeholder growth chart
+  const portfolioGrowth = [
+    { date: "2023-01-01", value: 0 },
+    { date: "2023-02-01", value: 0 },
+    { date: "2023-03-01", value: 0 },
+  ]
 
   if (loading) {
     return (
@@ -100,8 +140,10 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$45,231.89</div>
-            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+            <div className="text-2xl font-bold">${totalBalance.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">
+              {balanceChangePercent.toFixed(2)}% from last month
+            </p>
           </CardContent>
         </Card>
 
@@ -113,20 +155,20 @@ export default function DashboardPage() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3 Running</div>
-            <p className="text-xs text-muted-foreground">1 paused</p>
+            <div className="text-2xl font-bold">{activeStrategies} Running</div>
+            <p className="text-xs text-muted-foreground">{pausedStrategies} paused</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Portfolio Assets</CardTitle>
+            <CardTitle className="text-sm font-medium">Portfolios</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{portfolios.length}</div>
+            <div className="text-2xl font-bold">{totalPortfolios}</div>
             <p className="text-xs text-muted-foreground">
-              {portfolios.length === 1 ? "Portfolio" : "Portfolios"}
+              {totalPortfolios === 1 ? "Portfolio" : "Portfolios"}
             </p>
           </CardContent>
         </Card>
@@ -136,7 +178,7 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+5</div>
+            <div className="text-2xl font-bold">+{unreadNotifications}</div>
             <p className="text-xs text-muted-foreground">Since last login</p>
           </CardContent>
         </Card>
@@ -153,25 +195,26 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="h-[350px] w-full">
-              <OverviewChart />
+              <OverviewChart data={portfolioGrowth} />
             </div>
             <div className="space-y-4">
               {portfolios.length > 0 ? (
                 portfolios.map((portfolio) => (
-                  <div
-                    key={portfolio.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
-                  >
-                    <div>
-                      <p className="text-sm font-medium leading-none">
-                        {portfolio.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {portfolio.description || "No description"}
-                      </p>
+                  <Link href={`/dashboard/portfolio/${portfolio.id}`} key={portfolio.id}>
+                    <div
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+                    >
+                      <div>
+                        <p className="text-sm font-medium leading-none">
+                          {portfolio.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {portfolio.description || "No description"}
+                        </p>
+                      </div>
+                      <div className="text-sm font-medium">View →</div>
                     </div>
-                    <div className="text-sm font-medium">View →</div>
-                  </div>
+                  </Link>
                 ))
               ) : (
                 <div className="h-[150px] flex items-center justify-center border rounded border-dashed text-muted-foreground">
@@ -189,28 +232,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* Mock List */}
-              <div className="flex items-center">
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    AAPL Buy Order
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Executed at $150.00
-                  </p>
-                </div>
-                <div className="ml-auto font-medium">+$1,500.00</div>
-              </div>
-              <div className="flex items-center">
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    Strategy Alert
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    RSI Oversold on TSLA
-                  </p>
-                </div>
-                <div className="ml-auto font-medium text-yellow-500">Alert</div>
+              {/* Placeholder for Transaction History */}
+              <div className="h-[150px] flex items-center justify-center text-muted-foreground text-sm">
+                No recent activity.
               </div>
             </div>
           </CardContent>

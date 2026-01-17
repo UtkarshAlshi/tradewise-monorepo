@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { API_BASE_URL } from '@/lib/utils'; // <-- Import API_BASE_URL
 
 // --- Types ---
 interface BacktestModalProps {
@@ -45,7 +46,7 @@ export default function BacktestModal({ strategyId, strategyName, onClose }: Bac
     }
 
     try {
-      const res = await fetch('http://localhost:8000/api/backtest', {
+      const res = await fetch(`${API_BASE_URL}/api/backtest`, { // <-- Use API_BASE_URL
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

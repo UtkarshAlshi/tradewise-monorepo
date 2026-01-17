@@ -119,4 +119,24 @@ public class PortfolioService {
 
         portfolioAssetRepository.delete(asset);
     }
+
+    // --- INTERNAL METHODS FOR LEADERBOARD SERVICE ---
+
+    @Transactional(readOnly = true)
+    public List<UUID> getAllPortfolioIds() {
+        return portfolioRepository.findAllIds();
+    }
+
+    @Transactional(readOnly = true)
+    public PortfolioResponse getPortfolioForAnalytics(UUID portfolioId) {
+        return portfolioRepository.findById(portfolioId)
+                .map(portfolio -> new PortfolioResponse(
+                        portfolio.getId(),
+                        portfolio.getName(),
+                        portfolio.getDescription(),
+                        portfolio.getCreatedAt(),
+                        portfolio.getUserEmail()
+                ))
+                .orElseThrow(() -> new RuntimeException("Portfolio not found with id: " + portfolioId));
+    }
 }

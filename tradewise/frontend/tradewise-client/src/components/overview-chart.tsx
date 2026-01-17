@@ -3,23 +3,11 @@
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts"
 import { useTheme } from "next-themes"
 
-// Mock data simulating portfolio growth
-const data = [
-  { name: "Jan", total: 12000 },
-  { name: "Feb", total: 13500 },
-  { name: "Mar", total: 12800 },
-  { name: "Apr", total: 14200 },
-  { name: "May", total: 15100 },
-  { name: "Jun", total: 16800 },
-  { name: "Jul", total: 16200 },
-  { name: "Aug", total: 17500 },
-  { name: "Sep", total: 19200 },
-  { name: "Oct", total: 18800 },
-  { name: "Nov", total: 21500 },
-  { name: "Dec", total: 23000 },
-]
+interface OverviewChartProps {
+  data: { date: string; value: number }[];
+}
 
-export function OverviewChart() {
+export function OverviewChart({ data }: OverviewChartProps) {
   const { theme } = useTheme()
   const isDark = theme === "dark" || true
 
@@ -30,14 +18,14 @@ export function OverviewChart() {
     <ResponsiveContainer width="100%" height={300}>
       <AreaChart data={data}>
         <defs>
-          <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#22c55e" stopOpacity={0.28}/>
             <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
           </linearGradient>
         </defs>
 
         <XAxis
-          dataKey="name"
+          dataKey="date"
           stroke={axisColor}
           fontSize={12}
           tickLine={false}
@@ -66,11 +54,11 @@ export function OverviewChart() {
 
         <Area
           type="monotone"
-          dataKey="total"
+          dataKey="value"
           stroke="#22c55e"
           strokeWidth={2}
           fillOpacity={1}
-          fill="url(#colorTotal)"
+          fill="url(#colorValue)"
         />
       </AreaChart>
     </ResponsiveContainer>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import AddAssetForm from '@/app/components/AddAssetForm';
 import { useWebSocket } from '@/app/context/WebSocketContext'; // <-- 1. IMPORT
 import { StompSubscription } from '@stomp/stompjs'; // <-- Import
+import { API_BASE_URL } from '@/lib/utils'; // <-- Import API_BASE_URL
 
 // --- Define our data types (we'll reuse some) ---
 interface AssetAnalytics {
@@ -53,7 +54,7 @@ export default function PortfolioDetailPage() {
 
     try {
       const res = await fetch(
-        `http://localhost:8000/api/portfolios/${portfolioId}/analytics`,
+        `${API_BASE_URL}/api/portfolios/${portfolioId}/analytics`, // <-- Use API_BASE_URL
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -106,10 +107,9 @@ export default function PortfolioDetailPage() {
           let newTotalValue = 0;
           
           // Create a new assets array with the updated price
+          const newPrice = Number(priceUpdate.price); // Ensure price is treated as a number
           const newAssets = currentAnalytics.assets.map(a => {
             if (a.symbol === priceUpdate.symbol) {
-              // Ensure price is treated as a number
-              const newPrice = Number(priceUpdate.price);
               const newMarketValue = a.quantity * newPrice;
               const newGainLoss = newMarketValue - a.totalCost;
               const newGainLossPercent = a.totalCost === 0 ? 0 : (newGainLoss / a.totalCost) * 100;

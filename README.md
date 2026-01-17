@@ -19,6 +19,7 @@ TradeWise is built as a **Microservices Monorepo**. It moves away from monolithi
 | **Market Data Service** | `8084` | Fetches live prices from Finnhub API and publishes to Kafka. |
 | **Backtesting Service** | `8085` | Runs historical simulations using `ta4j` to validate strategies. |
 | **Notification Service** | `8086` | Consumes Kafka events to push Real-time WebSocket alerts to the frontend. |
+| **Leaderboard Service** | `8087` | Aggregates portfolio performance to rank users (Cached/Scheduled). |
 
 ---
 

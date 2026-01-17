@@ -133,7 +133,19 @@ services:
     networks:
       - tradewise-net
     ports: 
-      - "8085:8085" 
+      - "8085:8085"
+
+  leaderboard-service:
+    build: ./backend/leaderboard-service
+    networks:
+      - tradewise-net
+    ports:
+      - "8087:8087"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - portfolio-service
+      - market-data-service
 
 volumes:
   postgres_data:

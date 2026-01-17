@@ -133,7 +133,7 @@ public class BacktestingService {
             }
         }
 
-        return new BaseStrategy(entryRule, new StopGainRule(new ClosePriceIndicator(barSeries), DecimalNum.valueOf(0)).or(exitRule).or(new WaitForRule((Trade.TradeType) exitRule, 1)));
+        return new BaseStrategy(entryRule, exitRule);
     }
 
     /**
