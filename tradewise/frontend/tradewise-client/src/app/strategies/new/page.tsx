@@ -175,7 +175,7 @@ export default function NewStrategyPage() {
 
       if (res.ok) {
         // Success! Redirect back to the strategies list
-        router.push('/strategies');
+        router.push('/dashboard/strategies'); // <-- Updated redirect
       } else {
         const errorMessage = await res.text();
         setError(`Error: ${errorMessage}`);
@@ -191,7 +191,7 @@ export default function NewStrategyPage() {
   return (
     <div className="min-h-screen p-8">
       <nav className="mb-6">
-        <Link href="/strategies" className="text-blue-400 hover:text-blue-300">
+        <Link href="/dashboard/strategies" className="text-blue-400 hover:text-blue-300">
           &larr; Back to My Strategies
         </Link>
       </nav>

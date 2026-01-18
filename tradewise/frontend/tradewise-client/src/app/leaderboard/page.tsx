@@ -53,7 +53,8 @@ export default function LeaderboardPage() {
         {error && <p className="text-red-500">{error}</p>}
         
         {!loading && !error && (
-          <div className="bg-gray-800 rounded-lg shadow-md overflow-hidden">
+          // CHANGED: overflow-hidden -> overflow-x-auto to prevent clipping
+          <div className="bg-gray-800 rounded-lg shadow-md overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-gray-700">
                 <tr>

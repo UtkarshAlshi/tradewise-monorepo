@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, LineChart, PieChart, FlaskConical, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, PieChart, FlaskConical, Settings } from "lucide-react"
 
 const items = [
   {
@@ -20,11 +20,6 @@ const items = [
     title: "Strategies",
     href: "/dashboard/strategies",
     icon: FlaskConical,
-  },
-  {
-    title: "Backtesting",
-    href: "/dashboard/backtest",
-    icon: LineChart,
   },
   {
     title: "Settings",

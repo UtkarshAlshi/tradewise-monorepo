@@ -36,11 +36,22 @@ interface User {
 type Portfolio = z.infer<typeof PortfolioSchema>
 type Strategy = z.infer<typeof StrategySchema>
 
+interface DashboardAnalytics {
+  totalBalance: number
+  balanceChangePercent: number
+  activeStrategies: number
+  pausedStrategies: number
+  totalPortfolios: number
+  unreadNotifications: number
+  portfolioGrowth: { date: string; value: number }[]
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [strategies, setStrategies] = useState<Strategy[]>([])
+  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
@@ -84,6 +95,17 @@ export default function DashboardPage() {
         const validatedStrategies = z.array(StrategySchema).parse(strategiesData)
         setStrategies(validatedStrategies)
 
+        // 4. Fetch Dashboard Analytics (Aggregated Data)
+        const analyticsRes = await fetch(`${API_BASE_URL}/api/dashboard/analytics`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (analyticsRes.ok) {
+          const analyticsData = await analyticsRes.json()
+          setAnalytics(analyticsData)
+        } else {
+          console.warn("Failed to fetch dashboard analytics")
+        }
+
       } catch (err: any) {
         console.error("Data validation or fetch error:", err)
         setError(err.message)
@@ -95,18 +117,16 @@ export default function DashboardPage() {
     fetchData()
   }, [router])
 
-  // --- Derived Metrics (Real Counts) ---
-  const totalPortfolios = portfolios.length
-  const activeStrategies = strategies.length // Assuming all fetched strategies are active for now
-  const pausedStrategies = 0 // We don't have status in StrategyResponse yet
-
-  // --- Mock Data for Valuation (Placeholder until Market Data Service integration) ---
-  const totalBalance = 0.00 // We can't calculate this without asset prices
-  const balanceChangePercent = 0.00
-  const unreadNotifications = 0 // Notification service integration needed
+  // --- Derived Metrics ---
+  // We prefer analytics data if available, otherwise fallback to calculated/mock
+  const totalPortfolios = analytics?.totalPortfolios ?? portfolios.length
+  const activeStrategies = analytics?.activeStrategies ?? strategies.length
+  const pausedStrategies = analytics?.pausedStrategies ?? 0
+  const totalBalance = analytics?.totalBalance ?? 0.00
+  const balanceChangePercent = analytics?.balanceChangePercent ?? 0.00
+  const unreadNotifications = analytics?.unreadNotifications ?? 0
   
-  // Placeholder growth chart
-  const portfolioGrowth = [
+  const portfolioGrowth = analytics?.portfolioGrowth ?? [
     { date: "2023-01-01", value: 0 },
     { date: "2023-02-01", value: 0 },
     { date: "2023-03-01", value: 0 },

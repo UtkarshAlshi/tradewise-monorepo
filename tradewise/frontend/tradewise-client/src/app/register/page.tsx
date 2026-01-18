@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, AlertCircle, CheckCircle } from "lucide-react"
+import { API_BASE_URL } from "@/lib/utils"
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("")
@@ -37,8 +38,7 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-      const url = `${apiBase.replace(/\/$/, "")}/api/auth/register`
+      const url = `${API_BASE_URL.replace(/\/$/, "")}/api/auth/register`
 
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 10000)

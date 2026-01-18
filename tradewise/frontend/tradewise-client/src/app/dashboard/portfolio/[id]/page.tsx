@@ -219,7 +219,8 @@ export default function PortfolioDetailPage() {
         <div className="lg:col-span-2">
           <h2 className="text-2xl font-semibold mb-6">Assets</h2>
           {loading && <p className="text-sm text-gray-400 mb-2">Refreshing data...</p>} {/* Show refresh indicator */}
-          <div className="bg-gray-800 rounded-lg shadow-md overflow-hidden">
+          {/* CHANGED: overflow-hidden -> overflow-x-auto to prevent clipping */}
+          <div className="bg-gray-800 rounded-lg shadow-md overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-gray-700">
                 <tr>

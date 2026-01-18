@@ -90,12 +90,13 @@ export default function LoginPage() {
                 <Label htmlFor="password" className="text-sm font-medium">
                   Password
                 </Label>
-                <Link
+                {/* Forgot password link hidden until feature is implemented */}
+                {/* <Link
                   href="#"
                   className="text-xs text-primary hover:underline"
                 >
                   Forgot password?
-                </Link>
+                </Link> */}
               </div>
               <Input
                 id="password"

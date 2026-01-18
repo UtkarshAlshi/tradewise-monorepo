@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { API_BASE_URL } from '@/lib/utils';
 
 // --- Define the types ---
 interface Portfolio {
@@ -35,7 +36,7 @@ export default function CreatePortfolioForm({ onPortfolioCreated }: CreatePortfo
     }
 
     try {
-      const res = await fetch('http://localhost:8000/api/portfolios', {
+      const res = await fetch(`${API_BASE_URL}/api/portfolios`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

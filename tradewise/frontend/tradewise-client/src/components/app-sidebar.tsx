@@ -16,7 +16,7 @@ const routes = [
   {
     label: "My Strategies",
     icon: LineChart,
-    href: "/strategies",
+    href: "/dashboard/strategies",
     color: "text-violet-500",
   },
   {
@@ -29,11 +29,6 @@ const routes = [
 
 export function AppSidebar() {
   const pathname = usePathname()
-
-  // Don't show sidebar on login/register pages
-  if (pathname === "/login" || pathname === "/register" || pathname === "/") {
-    return null
-  }
 
   const handleLogout = () => {
     localStorage.removeItem("token")

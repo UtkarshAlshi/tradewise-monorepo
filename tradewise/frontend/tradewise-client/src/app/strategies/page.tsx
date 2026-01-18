@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BacktestModal from '../components/BacktestModal'; // <-- 1. IMPORT
+import { API_BASE_URL } from '@/lib/utils';
 
 // --- Define Types ---
 interface Strategy {
@@ -33,7 +34,7 @@ export default function StrategiesPage() {
 
     const fetchData = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/strategies', {
+        const res = await fetch(`${API_BASE_URL}/api/strategies`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },

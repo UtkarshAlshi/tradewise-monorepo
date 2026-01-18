@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import { WS_BASE_URL } from '@/lib/utils';
 
 interface WebSocketContextType {
   subscribe: (topic: string, callback: (message: any) => void) => StompSubscription | null;
@@ -21,8 +22,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         try {
           // Connect DIRECTLY to notification-service on port 8086
           // This bypasses the API Gateway for WebSocket connections
-          const wsBase = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:8086';
-          const base = wsBase.replace(/\/$/, '');
+          const base = WS_BASE_URL.replace(/\/$/, '');
 
           if (typeof window !== 'undefined') {
             const token = localStorage.getItem('token');
@@ -33,8 +33,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           return new SockJS(`${base}/ws`);
         } catch (err) {
           console.error('WebSocket connection error:', err);
-          const fallback = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:8086';
-          return new SockJS(`${fallback.replace(/\/$/, '')}/ws`);
+          return new SockJS(`${WS_BASE_URL.replace(/\/$/, '')}/ws`);
         }
       },
       onConnect: () => {

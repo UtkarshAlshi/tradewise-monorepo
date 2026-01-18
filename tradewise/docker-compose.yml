@@ -134,6 +134,9 @@ services:
       - tradewise-net
     ports: 
       - "8085:8085"
+    environment:
+      - STRATEGY_SERVICE_HOST=strategy-service:8080
+      - MARKET_DATA_SERVICE_HOST=market-data-service:8080
 
   leaderboard-service:
     build: ./backend/leaderboard-service

@@ -6,7 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { WebSocketProvider } from '@/app/context/WebSocketContext';
 import { Toaster } from 'react-hot-toast';
 import NotificationHandler from '@/components/notification-handler';
-import { AppSidebar } from "@/components/app-sidebar";
+import { MainLayout } from "@/components/main-layout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,12 +44,9 @@ export default function RootLayout({
           <WebSocketProvider>
             <Toaster position="top-right" />
             <NotificationHandler />
-            <div className="flex h-full">
-              <AppSidebar />
-              <main className="flex-1 md:pl-64 h-full">
-                {children}
-              </main>
-            </div>
+            <MainLayout>
+              {children}
+            </MainLayout>
           </WebSocketProvider>
         </ThemeProvider>
       </body>

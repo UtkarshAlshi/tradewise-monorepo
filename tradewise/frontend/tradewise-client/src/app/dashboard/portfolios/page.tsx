@@ -6,6 +6,7 @@ import { CreatePortfolioDialog } from "@/components/create-portfolio-dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Wallet } from "lucide-react"
+import { API_BASE_URL } from "@/lib/utils"
 
 interface Portfolio {
   id: string
@@ -27,7 +28,7 @@ export default function PortfoliosPage() {
         return
       }
 
-      const res = await fetch("http://localhost:8000/api/portfolios", {
+      const res = await fetch(`${API_BASE_URL}/api/portfolios`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
