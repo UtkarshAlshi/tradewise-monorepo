@@ -1,11 +1,12 @@
 package com.tradewise.marketdataservice.controller;
 
+import com.tradewise.marketdataservice.dto.BarDTO;
 import com.tradewise.marketdataservice.service.MarketDataService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.ta4j.core.BarSeries; // <-- ADD
-import org.springframework.web.bind.annotation.RequestParam; // <-- ADD
-import java.time.LocalDate; // <-- ADD
+import org.springframework.web.bind.annotation.RequestParam;
+import java.time.LocalDate;
+import java.util.List;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -27,7 +28,7 @@ public class MarketDataController {
     @GetMapping("/{symbol}")
     public ResponseEntity<String> getMarketData(
             @PathVariable String symbol,
-            @RequestHeader("X-User-Email") String userEmail) { // <-- ADD
+            @RequestHeader("X-User-Email") String userEmail) {
 
         Optional<BigDecimal> price = marketDataService.getLatestPrice(symbol.toUpperCase());
 
@@ -38,16 +39,15 @@ public class MarketDataController {
         }
     }
     
-    // --- ADD THIS NEW ENDPOINT ---
     @GetMapping("/history/internal")
-    public ResponseEntity<BarSeries> getHistoricalData(
+    public ResponseEntity<List<BarDTO>> getHistoricalData(
             @RequestParam String symbol,
             @RequestParam LocalDate startDate,
             @RequestParam LocalDate endDate,
             @RequestHeader("X-User-Email") String userEmail) {
         
         // We don't use the email, but it confirms auth
-        BarSeries series = marketDataService.getHistoricalData(symbol, startDate, endDate);
+        List<BarDTO> series = marketDataService.getHistoricalData(symbol, startDate, endDate);
         return ResponseEntity.ok(series);
     }
 }

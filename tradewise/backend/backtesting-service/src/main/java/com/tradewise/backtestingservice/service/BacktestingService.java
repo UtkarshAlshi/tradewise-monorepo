@@ -1,16 +1,17 @@
 package com.tradewise.backtestingservice.service;
 
 import com.tradewise.backtestingservice.dto.BacktestRequest;
+import com.tradewise.backtestingservice.dto.BarDTO;
 import com.tradewise.backtestingservice.dto.response.BacktestReportResponse;
 import com.tradewise.backtestingservice.model.Strategy;
 import com.tradewise.backtestingservice.model.StrategyCondition;
 import com.tradewise.backtestingservice.model.StrategyRule;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.ta4j.core.*;
 import org.ta4j.core.analysis.CashFlow;
 
-// --- CORRECTED IMPORTS (v0.17) ---
 import org.ta4j.core.backtest.BarSeriesManager;
 import org.ta4j.core.criteria.MaximumDrawdownCriterion;
 import org.ta4j.core.criteria.NumberOfPositionsCriterion;
@@ -23,15 +24,14 @@ import org.ta4j.core.indicators.SMAIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.num.DecimalNum;
 
-// --- MISSING IMPORTS ADDED (from your screenshots) ---
 import org.ta4j.core.rules.*;
-import org.ta4j.core.Trade; // Replaces 'Order'
-// --- END IMPORT FIXES ---
+import org.ta4j.core.Trade;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpEntity;
@@ -84,13 +84,18 @@ public class BacktestingService {
             request.getSymbol(), request.getStartDate(), request.getEndDate()
         );
         HttpEntity<Void> dataEntity = new HttpEntity<>(headers);
-        ResponseEntity<BaseBarSeries> dataResponse = restTemplate.exchange(
+        
+        // Use ParameterizedTypeReference to fetch List<BarDTO>
+        ResponseEntity<List<BarDTO>> dataResponse = restTemplate.exchange(
             dataUrl,
             HttpMethod.GET,
             dataEntity,
-            BaseBarSeries.class
+            new ParameterizedTypeReference<List<BarDTO>>() {}
         );
-        BarSeries barSeries = dataResponse.getBody();
+        List<BarDTO> barDTOs = dataResponse.getBody();
+
+        // Convert DTOs to ta4j BarSeries
+        BarSeries barSeries = convertToBarSeries(request.getSymbol(), barDTOs);
 
         // 3. Build ta4j Strategy from our DB entities
         BaseStrategy ta4jStrategy = buildTa4jStrategy(strategy, barSeries);
@@ -99,12 +104,28 @@ public class BacktestingService {
         BarSeriesManager manager = new BarSeriesManager(barSeries);
         TradingRecord tradingRecord = manager.run(
                 ta4jStrategy,
-                Trade.TradeType.BUY, // <-- FIX: Renamed from Order.OrderType
+                Trade.TradeType.BUY,
                 DecimalNum.valueOf(request.getInitialCash())
         );
 
         // 5. Calculate Metrics
         return calculateReport(strategy.getName(), request.getSymbol(), barSeries, tradingRecord, request.getInitialCash());
+    }
+
+    private BarSeries convertToBarSeries(String symbol, List<BarDTO> barDTOs) {
+        BaseBarSeries series = new BaseBarSeries(symbol);
+        for (BarDTO dto : barDTOs) {
+            series.addBar(
+                Duration.ofDays(1),
+                dto.getEndTime(),
+                dto.getOpen().doubleValue(),
+                dto.getHigh().doubleValue(),
+                dto.getLow().doubleValue(),
+                dto.getClose().doubleValue(),
+                dto.getVolume().doubleValue()
+            );
+        }
+        return series;
     }
 
     /**
@@ -113,11 +134,11 @@ public class BacktestingService {
     private BaseStrategy buildTa4jStrategy(Strategy dbStrategy, BarSeries barSeries) {
         Map<String, Indicator> indicatorCache = new HashMap<>();
 
-        Rule entryRule = new BooleanRule(false); // <-- FIX: Import was missing
-        Rule exitRule = new BooleanRule(false);  // <-- FIX: Import was missing
+        Rule entryRule = new BooleanRule(false);
+        Rule exitRule = new BooleanRule(false);
 
         for (StrategyRule dbRule : dbStrategy.getRules()) {
-            Rule combinedRuleForConditions = new BooleanRule(true); // <-- FIX: Import was missing
+            Rule combinedRuleForConditions = new BooleanRule(true);
 
             if (dbRule.getConditions() == null) continue;
 
@@ -163,9 +184,9 @@ public class BacktestingService {
                 case "LESS_THAN":
                     return new UnderIndicatorRule(indicatorA, indicatorB);
                 case "CROSSES_ABOVE":
-                    return new CrossedUpIndicatorRule(indicatorA, indicatorB); // <-- FIX: Import was missing
+                    return new CrossedUpIndicatorRule(indicatorA, indicatorB);
                 case "CROSSES_BELOW":
-                    return new CrossedDownIndicatorRule(indicatorA, indicatorB); // <-- FIX: Import was missing
+                    return new CrossedDownIndicatorRule(indicatorA, indicatorB);
                 default:
                     throw new RuntimeException("Unsupported operator: " + condition.getOperator());
             }
@@ -223,25 +244,21 @@ public class BacktestingService {
 
         CashFlow cashFlow = new CashFlow(series, record, DecimalNum.valueOf(initialCash).intValue());
 
-        // --- FIX: Cast getDelegate() to BigDecimal ---
         BigDecimal finalValue = (BigDecimal) cashFlow.getValue(series.getEndIndex()).getDelegate();
         BigDecimal pnl = finalValue.subtract(BigDecimal.valueOf(initialCash));
         BigDecimal returnPercent = pnl.divide(BigDecimal.valueOf(initialCash), 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100));
 
+        int totalTrades = new NumberOfPositionsCriterion().calculate(series, record).intValue();
 
-        // --- FIX: Correct class names and types (v0.17) ---
-        int totalTrades = new NumberOfPositionsCriterion().calculate(series, record).intValue(); // <-- FIX: .intValue()
-
-        BigDecimal winRate = ((BigDecimal) new PositionsRatioCriterion(PositionFilter.PROFIT) // <-- FIX: Added constructor arg & import
+        BigDecimal winRate = ((BigDecimal) new PositionsRatioCriterion(PositionFilter.PROFIT)
                 .calculate(series, record)
-                .getDelegate()) // <-- FIX: Cast to BigDecimal
+                .getDelegate())
                 .multiply(BigDecimal.valueOf(100));
 
         BigDecimal maxDrawdown = ((BigDecimal) new MaximumDrawdownCriterion().calculate(series, record)
-                .getDelegate()) // <-- FIX: Cast to BigDecimal
+                .getDelegate())
                 .multiply(BigDecimal.valueOf(100));
-        // --- END OF FIX ---
 
         return BacktestReportResponse.builder()
                 .strategyName(strategyName)

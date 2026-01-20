@@ -40,6 +40,7 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- Replaced oauth2-resource-server with starter-security to avoid auto-config issues -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
