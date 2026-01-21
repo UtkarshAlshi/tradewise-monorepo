@@ -54,7 +54,12 @@ public class JwtUtil {
 
     // Validates the token (checks expiration).
     public Boolean validateToken(String token) {
-        return !isTokenExpired(token);
+        try {
+            return !isTokenExpired(token);
+        } catch (Exception e) {
+            // If any exception occurs (expired, malformed, signature invalid), return false
+            return false;
+        }
     }
 
     // Helper method to create the signing key.

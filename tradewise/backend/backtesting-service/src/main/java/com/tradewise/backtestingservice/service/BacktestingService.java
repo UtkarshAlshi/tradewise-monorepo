@@ -6,6 +6,8 @@ import com.tradewise.backtestingservice.dto.response.BacktestReportResponse;
 import com.tradewise.backtestingservice.model.Strategy;
 import com.tradewise.backtestingservice.model.StrategyCondition;
 import com.tradewise.backtestingservice.model.StrategyRule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -43,6 +45,8 @@ import org.springframework.http.ResponseEntity;
 @Service
 public class BacktestingService {
 
+    private static final Logger logger = LoggerFactory.getLogger(BacktestingService.class);
+
     private final RestTemplate restTemplate;
     
     // Service URLs (use environment variables for Docker compatibility)
@@ -57,6 +61,8 @@ public class BacktestingService {
      * Main method to run the backtest.
      */
     public BacktestReportResponse runBacktest(BacktestRequest request, String userEmail) {
+        logger.info("Starting backtest for symbol: {}, strategyId: {}", request.getSymbol(), request.getStrategyId());
+
         // Prepare headers for authenticated requests
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -73,6 +79,11 @@ public class BacktestingService {
         );
         Strategy strategy = strategyResponse.getBody();
 
+        if (strategy == null) {
+            throw new RuntimeException("Strategy not found");
+        }
+        logger.info("Fetched strategy: {}, rules count: {}", strategy.getName(), strategy.getRules().size());
+
         // --- CRITICAL SECURITY CHECK ---
         if (!strategy.getUserEmail().equals(userEmail)) {
             throw new RuntimeException("Access Denied: You do not own this strategy.");
@@ -83,6 +94,8 @@ public class BacktestingService {
             "http://" + MARKET_DATA_SERVICE_HOST + "/api/market-data/history/internal?symbol=%s&startDate=%s&endDate=%s",
             request.getSymbol(), request.getStartDate(), request.getEndDate()
         );
+        logger.info("Fetching market data from: {}", dataUrl);
+
         HttpEntity<Void> dataEntity = new HttpEntity<>(headers);
         
         // Use ParameterizedTypeReference to fetch List<BarDTO>
@@ -94,6 +107,16 @@ public class BacktestingService {
         );
         List<BarDTO> barDTOs = dataResponse.getBody();
 
+        if (barDTOs == null || barDTOs.isEmpty()) {
+            logger.warn("No market data found for symbol: {}", request.getSymbol());
+            return BacktestReportResponse.builder()
+                    .strategyName(strategy.getName()).symbol(request.getSymbol()).totalTrades(0)
+                    .totalProfitLoss(BigDecimal.ZERO).totalReturnPercent(BigDecimal.ZERO)
+                    .winRatePercent(BigDecimal.ZERO).maxDrawdownPercent(BigDecimal.ZERO)
+                    .build();
+        }
+        logger.info("Fetched {} bars.", barDTOs.size());
+
         // Convert DTOs to ta4j BarSeries
         BarSeries barSeries = convertToBarSeries(request.getSymbol(), barDTOs);
 
@@ -102,11 +125,24 @@ public class BacktestingService {
 
         // 4. Run the Simulation
         BarSeriesManager manager = new BarSeriesManager(barSeries);
+        
+        // Calculate amount to trade based on initial cash and first bar's price
+        // This is a simplified approach: we calculate how many units we can buy with the initial cash at the start.
+        // We use this fixed amount for all trades.
+        double firstPrice = barSeries.getBar(barSeries.getBeginIndex()).getClosePrice().doubleValue();
+        double amountToTrade = request.getInitialCash() / firstPrice;
+        amountToTrade = Math.floor(amountToTrade);
+        if (amountToTrade < 1) amountToTrade = 1; // Ensure we trade at least 1 unit if cash is low (or allow fractional?)
+        
+        logger.info("Calculated trade amount: {} (Initial Cash: {}, First Price: {})", amountToTrade, request.getInitialCash(), firstPrice);
+
         TradingRecord tradingRecord = manager.run(
                 ta4jStrategy,
                 Trade.TradeType.BUY,
-                DecimalNum.valueOf(request.getInitialCash())
+                DecimalNum.valueOf(amountToTrade)
         );
+
+        logger.info("Backtest finished. Total trades: {}", tradingRecord.getTrades().size());
 
         // 5. Calculate Metrics
         return calculateReport(strategy.getName(), request.getSymbol(), barSeries, tradingRecord, request.getInitialCash());
