@@ -20,12 +20,11 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     const client = new Client({
       webSocketFactory: () => {
         try {
-          // Connect DIRECTLY to notification-service on port 8086
-          // This bypasses the API Gateway for WebSocket connections
           const base = WS_BASE_URL.replace(/\/$/, '');
-
+          
           if (typeof window !== 'undefined') {
             const token = localStorage.getItem('token');
+            // Append /ws to the base URL (which is now localhost:8000)
             const url = token ? `${base}/ws?token=${encodeURIComponent(token)}` : `${base}/ws`;
             console.log('Connecting to WebSocket:', url);
             return new SockJS(url);

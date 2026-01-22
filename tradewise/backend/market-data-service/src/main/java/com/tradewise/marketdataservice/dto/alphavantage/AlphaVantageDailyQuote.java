@@ -1,5 +1,6 @@
 package com.tradewise.marketdataservice.dto.alphavantage;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
@@ -15,7 +16,9 @@ public class AlphaVantageDailyQuote {
     private String close;
     @JsonProperty("5. adjusted close")
     private String adjustedClose;
+    
     @JsonProperty("6. volume")
+    @JsonAlias("5. volume")
     private String volume;
 
     // Manually added getters and setters

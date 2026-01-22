@@ -32,6 +32,7 @@ import org.ta4j.core.Trade;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -115,7 +116,15 @@ public class BacktestingService {
                     .winRatePercent(BigDecimal.ZERO).maxDrawdownPercent(BigDecimal.ZERO)
                     .build();
         }
-        logger.info("Fetched {} bars.", barDTOs.size());
+        
+        // Sort bars by time to ensure correct indicator calculation
+        barDTOs.sort(Comparator.comparing(BarDTO::getEndTime));
+        
+        logger.info("Fetched {} bars. Range: {} to {}", 
+            barDTOs.size(), 
+            barDTOs.get(0).getEndTime(), 
+            barDTOs.get(barDTOs.size() - 1).getEndTime()
+        );
 
         // Convert DTOs to ta4j BarSeries
         BarSeries barSeries = convertToBarSeries(request.getSymbol(), barDTOs);
@@ -130,6 +139,16 @@ public class BacktestingService {
         // This is a simplified approach: we calculate how many units we can buy with the initial cash at the start.
         // We use this fixed amount for all trades.
         double firstPrice = barSeries.getBar(barSeries.getBeginIndex()).getClosePrice().doubleValue();
+        
+        if (firstPrice <= 0 || Double.isNaN(firstPrice)) {
+            logger.warn("Invalid first price: {}. Cannot calculate trade amount.", firstPrice);
+             return BacktestReportResponse.builder()
+                    .strategyName(strategy.getName()).symbol(request.getSymbol()).totalTrades(0)
+                    .totalProfitLoss(BigDecimal.ZERO).totalReturnPercent(BigDecimal.ZERO)
+                    .winRatePercent(BigDecimal.ZERO).maxDrawdownPercent(BigDecimal.ZERO)
+                    .build();
+        }
+
         double amountToTrade = request.getInitialCash() / firstPrice;
         amountToTrade = Math.floor(amountToTrade);
         if (amountToTrade < 1) amountToTrade = 1; // Ensure we trade at least 1 unit if cash is low (or allow fractional?)
@@ -141,6 +160,16 @@ public class BacktestingService {
                 Trade.TradeType.BUY,
                 DecimalNum.valueOf(amountToTrade)
         );
+        
+        // Force close open position at the end
+        if (tradingRecord.getCurrentPosition().isOpened()) {
+            logger.info("Closing open position at the end of the series.");
+            tradingRecord.exit(
+                barSeries.getEndIndex(),
+                barSeries.getBar(barSeries.getEndIndex()).getClosePrice(),
+                tradingRecord.getCurrentPosition().getEntry().getAmount()
+            );
+        }
 
         logger.info("Backtest finished. Total trades: {}", tradingRecord.getTrades().size());
 
@@ -174,11 +203,17 @@ public class BacktestingService {
         Rule exitRule = new BooleanRule(false);
 
         for (StrategyRule dbRule : dbStrategy.getRules()) {
+            logger.info("Processing Rule ID: {}, Action: {}", dbRule.getId(), dbRule.getAction());
+            
             Rule combinedRuleForConditions = new BooleanRule(true);
 
             if (dbRule.getConditions() == null) continue;
 
             for (StrategyCondition dbCondition : dbRule.getConditions()) {
+                logger.info("  Condition: {} {} {} {}", 
+                    dbCondition.getIndicatorA(), dbCondition.getOperator(), 
+                    dbCondition.getIndicatorBType(), dbCondition.getIndicatorBValue());
+                    
                 Rule conditionRule = buildTa4jRule(dbCondition, barSeries, indicatorCache);
                 combinedRuleForConditions = combinedRuleForConditions.and(conditionRule);
             }
@@ -238,6 +273,8 @@ public class BacktestingService {
         if (cache.containsKey(cacheKey)) {
             return cache.get(cacheKey);
         }
+        
+        logger.info("Creating indicator: {} with params: {}", name, params);
 
         Indicator indicator;
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);

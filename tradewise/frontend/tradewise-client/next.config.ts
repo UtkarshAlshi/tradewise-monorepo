@@ -5,9 +5,10 @@ const config: NextConfig = {
   // which fixes the "inferred workspace root" warning.
   outputFileTracingRoot: __dirname,
   async rewrites() {
-    // Forward websocket info requests to the backend API server defined by NEXT_PUBLIC_API_URL
-    // This keeps the client using a relative `/ws` path while the dev server proxies to the correct port.
-  const dest = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8084';
+    // Forward websocket info requests to the backend API Gateway (port 8000)
+    // This ensures all client-side API and WebSocket traffic goes through the central gateway.
+    const dest = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'; // Correctly point to API Gateway
+
     return [
       {
         source: '/ws/:path*',
