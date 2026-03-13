@@ -70,137 +70,245 @@ flowchart TB
     PS --> PG
     SS --> PG
     NS --> PG
+```
 
+---
 
-Service Breakdown
-Service	Port	Description
-API Gateway	8000	Entry point for frontend requests. Handles routing and JWT authentication.
-User Service	8081	Manages user registration, authentication, and profiles.
-Portfolio Service	8082	Tracks holdings, balances, and simulated trading activity.
-Strategy Service	8083	CRUD operations for trading strategies defined by users.
-Market Data Service	8084	Streams live market prices from external APIs and publishes events to Kafka.
-Backtesting Service	8085	Executes strategy simulations against historical data using ta4j.
-Notification Service	8086	Consumes Kafka events and pushes real-time updates to the UI via WebSockets.
-Leaderboard Service	8087	Aggregates portfolio performance and ranks users.
-Tech Stack
-Backend Infrastructure
+# Service Breakdown
 
-Java 17
+| Service | Port | Description |
+|-------|------|-------------|
+| **API Gateway** | 8000 | Entry point for frontend requests. Handles routing and JWT authentication. |
+| **User Service** | 8081 | Manages user registration, authentication, and profiles. |
+| **Portfolio Service** | 8082 | Tracks holdings, balances, and simulated trading activity. |
+| **Strategy Service** | 8083 | CRUD operations for user-defined trading strategies. |
+| **Market Data Service** | 8084 | Streams live market prices from external APIs and publishes events to Kafka. |
+| **Backtesting Service** | 8085 | Executes strategy simulations against historical market data using ta4j. |
+| **Notification Service** | 8086 | Consumes Kafka events and pushes real-time updates to the UI via WebSockets. |
+| **Leaderboard Service** | 8087 | Aggregates portfolio performance and ranks users. |
 
-Spring Boot 3
+---
 
-Spring Cloud Gateway
+# Technology Stack
 
-Apache Kafka
+## Backend Infrastructure
 
-PostgreSQL
+- **Java 17**
+- **Spring Boot 3**
+- **Spring Cloud Gateway**
+- **Apache Kafka**
+- **PostgreSQL**
+- **Docker & Docker Compose**
+- **ta4j** — technical analysis library for trading simulations
 
-Docker & Docker Compose
+## Frontend
 
-ta4j (Technical analysis library for strategy simulation)
+- **Next.js 14**
+- **TypeScript**
+- **Tailwind CSS**
+- **Shadcn/UI**
+- **Recharts**
+- **Zustand**
 
-Frontend
+---
 
-Next.js 14
+# Key Features
 
-TypeScript
+## Microservice-Oriented Architecture
 
-Tailwind CSS
+Each domain concern is implemented as an independent service:
 
-Shadcn/UI
+- user management  
+- strategy configuration  
+- portfolio tracking  
+- notifications  
+- backtesting  
 
-Recharts
+This improves **maintainability, fault isolation, and scalability**.
 
-Zustand
+---
 
-Key Features
-Microservice-Oriented Architecture
+## Event-Driven Data Flow
 
-Each domain concern (user management, strategies, portfolio tracking, notifications) is separated into its own service.
+Live market prices are distributed using **Apache Kafka**.
 
-Event-Driven Data Flow
+This allows multiple services to react asynchronously to market events.
 
-Market prices are broadcast via Kafka, allowing downstream services to react asynchronously.
+Example:
 
-Real-Time Market Updates
+```
+Market Data Service → Kafka → Notification Service
+```
 
-WebSocket-based notifications push live price updates to the UI without page refresh.
+---
 
-Strategy Simulation
+## Real-Time Market Updates
 
-Users can backtest trading strategies against historical data before applying them in a simulated environment.
+The **Notification Service** uses **WebSockets** to push live price updates to the frontend dashboard.
 
-Secure Gateway Layer
+This eliminates the need for polling and ensures **low-latency updates**.
 
-All frontend communication passes through the API Gateway which handles routing and authentication.
+---
 
-Modern Dashboard UI
+## Strategy Simulation
 
-The frontend provides a real-time trading dashboard experience with responsive charts and live updates.
+Users can design trading strategies and run **backtests against historical data** before deploying them in simulated real-time trading.
 
-Running the Project
-Prerequisites
+This helps evaluate strategies without risking capital.
+
+---
+
+## Secure Gateway Layer
+
+All frontend communication passes through the **API Gateway**, which provides:
+
+- JWT authentication
+- service routing
+- centralized request handling
+
+---
+
+## Modern Trading Dashboard
+
+The frontend provides a **real-time trading interface** with:
+
+- live market charts
+- strategy controls
+- portfolio analytics
+- leaderboard rankings
+
+---
+
+# Project Structure
+
+```
+tradewise/
+│
+├── api-gateway/
+├── user-service/
+├── portfolio-service/
+├── strategy-service/
+├── market-data-service/
+├── backtesting-service/
+├── notification-service/
+├── leaderboard-service/
+│
+├── frontend/
+│   └── tradewise-client/
+│
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+# Running the Project
+
+## Prerequisites
 
 You will need:
 
-Docker Desktop
+- Docker Desktop
+- Node.js 18+
+- npm
 
-Node.js 18+
+---
 
-npm
+## Start Backend Infrastructure
 
-Start Backend Infrastructure
+```bash
 docker-compose up --build
+```
 
 This command launches:
 
-PostgreSQL
+- PostgreSQL
+- Kafka
+- All backend microservices
 
-Kafka
+The first startup may take **2–4 minutes** while Docker builds containers.
 
-All backend microservices
+---
 
-The first startup may take 2–4 minutes while containers build.
+## Start Frontend
 
-Start Frontend
+Navigate to the frontend directory:
+
+```bash
 cd frontend/tradewise-client
+```
 
+Install dependencies:
+
+```bash
 npm install
+```
 
+Start the development server:
+
+```bash
 npm run dev
-Access the Application
+```
 
-Open:
+---
 
+# Access the Application
+
+Open in your browser:
+
+```
 http://localhost:3000
-Development Notes
+```
+
+---
+
+# Development Notes
 
 TradeWise was built primarily to explore:
 
-distributed system architecture
+- distributed system architecture
+- event-driven communication
+- real-time market data streaming
+- service-oriented backend design
 
-real-time event streaming
+Heavy workloads such as **strategy backtesting** are isolated from lightweight request-response services such as authentication and CRUD operations.
 
-service-oriented backend design
+This separation mirrors architectural patterns used in **real financial trading systems**.
 
-simulation environments for financial applications
+---
 
-The system intentionally separates heavy workloads (backtesting) from light request-response flows (auth, CRUD) to mirror patterns commonly used in scalable financial systems.
-
-Future Improvements
+# Future Improvements
 
 Planned improvements include:
 
-Distributed tracing using Zipkin or Jaeger
+## Distributed Observability
 
-Machine learning service for market sentiment analysis
+- Zipkin
+- Jaeger
+- OpenTelemetry
 
-Kubernetes deployment for orchestration
+## Machine Learning
 
-Integration with broker APIs for real market execution
+- market sentiment analysis
+- strategy optimization
 
-Advanced analytics dashboards
+## Infrastructure
 
-License
+- Kubernetes deployment
+- service autoscaling
 
-This project is intended for educational and experimental purposes.
+## Broker Integration
+
+- Alpaca
+- Interactive Brokers
+
+## Advanced Analytics
+
+- deeper portfolio insights
+- risk analysis dashboards
+
+---
+
+# License
+
+This project is intended for **educational and experimental purposes**.
