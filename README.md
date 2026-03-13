@@ -1,97 +1,72 @@
-# TradeWise 📈
+# TradeWise
 
-**TradeWise** is a high-performance, distributed algorithmic trading platform. It allows users to design trading strategies, backtest them against historical data, and execute paper trades in real-time using a microservices architecture.
+TradeWise is a distributed algorithmic trading simulation platform that allows users to design trading strategies, backtest them against historical data, and observe real-time paper-trading performance without risking actual capital.
 
----
+The platform is designed as a **microservices-based system** to separate responsibilities such as market data ingestion, strategy management, portfolio tracking, and real-time notifications. This architecture improves modularity, fault isolation, and system clarity.
 
-## 🏗️ Architecture
-
-TradeWise is built as a **Microservices Monorepo**. It moves away from monolithic constraints, allowing independent scaling of the backtesting engine and real-time market data processors.
-
-### Service Breakdown
-
-| Service | Port | Description |
-| :--- | :--- | :--- |
-| **API Gateway** | `8000` | Central entry point. Handles routing, JWT Authentication, and rate limiting. |
-| **User Service** | `8081` | Manages user registration, login, and secure profiles. |
-| **Portfolio Service** | `8082` | Tracks cash balance, holdings, and transaction history. |
-| **Strategy Service** | `8083` | CRUD for trading rules (e.g., "Buy if RSI < 30"). |
-| **Market Data Service** | `8084` | Fetches live prices from Finnhub API and publishes to Kafka. |
-| **Backtesting Service** | `8085` | Runs historical simulations using `ta4j` to validate strategies. |
-| **Notification Service** | `8086` | Consumes Kafka events to push Real-time WebSocket alerts to the frontend. |
-| **Leaderboard Service** | `8087` | Aggregates portfolio performance to rank users (Cached/Scheduled). |
+TradeWise is intended as an engineering exploration into **distributed systems, event-driven architecture, and real-time data streaming in financial applications.**
 
 ---
 
-## 🛠️ Tech Stack
+# High-Level Architecture
 
-### Backend Infrastructure
-*   **Java 17 & Spring Boot 3:** Core application framework.
-*   **Apache Kafka:** Event-streaming backbone for real-time price updates.
-*   **PostgreSQL:** Relational database (Per-service database isolation).
-*   **Docker & Docker Compose:** Containerization and orchestration.
-*   **Ta4j:** Technical Analysis library for strategy logic.
+TradeWise follows a **microservices architecture** with an API Gateway acting as the central entry point for client requests. Live market prices are ingested by the Market Data Service and distributed through Kafka for downstream services such as the Notification Service to react asynchronously.
 
-### Frontend Client
-*   **Next.js 14 (App Router):** React framework for production.
-*   **TypeScript:** Type safety.
-*   **Tailwind CSS & Shadcn/UI:** Professional, accessible UI components.
-*   **Recharts:** Financial data visualization.
-*   **Zustand:** State management.
+Persistence is handled through a **shared PostgreSQL instance with logically isolated databases per service**.
 
----
+```mermaid
+flowchart TB
+    subgraph Client_Layer["Client Layer"]
+        U[User]
+        FE[Frontend Dashboard<br/>Next.js 14 + TypeScript + Tailwind + Shadcn/UI]
+    end
 
-## 🚀 Getting Started
+    subgraph Gateway_Layer["Gateway Layer"]
+        GW[API Gateway<br/>Spring Cloud Gateway<br/>JWT Authentication + Routing]
+    end
 
-You can run the entire infrastructure (Databases, Kafka, Zookeeper, and 7 Microservices) with one command.
+    subgraph Core_Services["Core Services"]
+        US[User Service<br/>Profiles, Registration, Login]
+        PS[Portfolio Service<br/>Holdings, Cash Balance, Transactions]
+        SS[Strategy Service<br/>CRUD for Trading Rules]
+        MD[Market Data Service<br/>Live Price Ingestion from Finnhub]
+        BS[Backtesting Service<br/>Historical Simulation using ta4j]
+        NS[Notification Service<br/>Real-time WebSocket Alerts]
+        LS[Leaderboard Service<br/>Rankings and Aggregation]
+    end
 
-### Prerequisites
-*   Docker Desktop installed and running.
-*   Node.js 18+ (for frontend only).
+    subgraph Messaging_Layer["Messaging Layer"]
+        K[(Apache Kafka)]
+    end
 
-### Installation
+    subgraph Data_Layer["Data Layer"]
+        PG[(PostgreSQL<br/>Shared instance with logical per-service databases)]
+    end
 
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/your-username/tradewise.git
-    cd tradewise
-    ```
+    subgraph External_Provider["External Provider"]
+        FH[Finnhub API<br/>WebSocket Market Feed]
+    end
 
-2.  **Start the Backend (Docker)**
-    This provisions Postgres, initializes databases, starts Kafka, builds the JARs, and launches the services.
-    ```bash
-    cd tradewise
-    docker-compose up --build
-    ```
-    *Wait for the logs to stabilize (approx. 2-4 minutes on first run).*
+    U --> FE
+    FE --> GW
 
-3.  **Start the Frontend**
-    Open a new terminal:
-    ```bash
-    cd tradewise/frontend/tradewise-client
-    npm install
-    npm run dev
-    ```
+    GW --> US
+    GW --> PS
+    GW --> NS
 
-4.  **Access the App**
-    Open [http://localhost:3000](http://localhost:3000) in your browser.
+    FH --> MD
+    MD --> K
+    K --> NS
 
----
+    BS --> SS
+    BS --> MD
 
-## ⚡ Key Features
+    LS --> PS
+    LS --> MD
 
-*   **Microservice Isolation:** Failure in the Backtesting service does not crash the Trading engine.
-*   **Event-Driven Architecture:** Market data is broadcasted via Kafka; services subscribe asynchronously.
-*   **JWT Security:** Stateless authentication passed through the API Gateway.
-*   **Real-time WebSockets:** Prices update live on the dashboard without page refreshes.
-*   **Dark Mode UI:** Professional financial dashboard aesthetic.
+    NS -->|WebSocket / STOMP| FE
 
----
-
-## 🔮 Future Roadmap
-
-*   [ ] Integration with Interactive Brokers API for real-money execution.
-*   [ ] Machine Learning (Python/FastAPI) service for sentiment analysis.
-*   [ ] Kubernetes (K8s) deployment configuration.
-
----
+    US --> PG
+    PS --> PG
+    SS --> PG
+    NS --> PG
