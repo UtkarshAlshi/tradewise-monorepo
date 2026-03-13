@@ -70,3 +70,137 @@ flowchart TB
     PS --> PG
     SS --> PG
     NS --> PG
+
+
+Service Breakdown
+Service	Port	Description
+API Gateway	8000	Entry point for frontend requests. Handles routing and JWT authentication.
+User Service	8081	Manages user registration, authentication, and profiles.
+Portfolio Service	8082	Tracks holdings, balances, and simulated trading activity.
+Strategy Service	8083	CRUD operations for trading strategies defined by users.
+Market Data Service	8084	Streams live market prices from external APIs and publishes events to Kafka.
+Backtesting Service	8085	Executes strategy simulations against historical data using ta4j.
+Notification Service	8086	Consumes Kafka events and pushes real-time updates to the UI via WebSockets.
+Leaderboard Service	8087	Aggregates portfolio performance and ranks users.
+Tech Stack
+Backend Infrastructure
+
+Java 17
+
+Spring Boot 3
+
+Spring Cloud Gateway
+
+Apache Kafka
+
+PostgreSQL
+
+Docker & Docker Compose
+
+ta4j (Technical analysis library for strategy simulation)
+
+Frontend
+
+Next.js 14
+
+TypeScript
+
+Tailwind CSS
+
+Shadcn/UI
+
+Recharts
+
+Zustand
+
+Key Features
+Microservice-Oriented Architecture
+
+Each domain concern (user management, strategies, portfolio tracking, notifications) is separated into its own service.
+
+Event-Driven Data Flow
+
+Market prices are broadcast via Kafka, allowing downstream services to react asynchronously.
+
+Real-Time Market Updates
+
+WebSocket-based notifications push live price updates to the UI without page refresh.
+
+Strategy Simulation
+
+Users can backtest trading strategies against historical data before applying them in a simulated environment.
+
+Secure Gateway Layer
+
+All frontend communication passes through the API Gateway which handles routing and authentication.
+
+Modern Dashboard UI
+
+The frontend provides a real-time trading dashboard experience with responsive charts and live updates.
+
+Running the Project
+Prerequisites
+
+You will need:
+
+Docker Desktop
+
+Node.js 18+
+
+npm
+
+Start Backend Infrastructure
+docker-compose up --build
+
+This command launches:
+
+PostgreSQL
+
+Kafka
+
+All backend microservices
+
+The first startup may take 2–4 minutes while containers build.
+
+Start Frontend
+cd frontend/tradewise-client
+
+npm install
+
+npm run dev
+Access the Application
+
+Open:
+
+http://localhost:3000
+Development Notes
+
+TradeWise was built primarily to explore:
+
+distributed system architecture
+
+real-time event streaming
+
+service-oriented backend design
+
+simulation environments for financial applications
+
+The system intentionally separates heavy workloads (backtesting) from light request-response flows (auth, CRUD) to mirror patterns commonly used in scalable financial systems.
+
+Future Improvements
+
+Planned improvements include:
+
+Distributed tracing using Zipkin or Jaeger
+
+Machine learning service for market sentiment analysis
+
+Kubernetes deployment for orchestration
+
+Integration with broker APIs for real market execution
+
+Advanced analytics dashboards
+
+License
+
+This project is intended for educational and experimental purposes.
