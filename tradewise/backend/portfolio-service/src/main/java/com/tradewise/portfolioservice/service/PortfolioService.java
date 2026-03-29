@@ -30,9 +30,9 @@ public class PortfolioService {
     @Transactional
     public Portfolio createPortfolio(CreatePortfolioRequest request, String userEmail) {
         Portfolio portfolio = Portfolio.builder()
-                .name(request.getName())
+                .name(request.getName().trim())
                 .description(request.getDescription())
-                .userEmail(userEmail) // SET THE EMAIL DIRECTLY
+                .userEmail(userEmail)
                 .build();
 
         return portfolioRepository.save(portfolio);
@@ -40,17 +40,13 @@ public class PortfolioService {
 
     @Transactional(readOnly = true)
     public List<PortfolioResponse> getPortfoliosByUser(String userEmail) {
-        // Find by email instead of ID
-        List<Portfolio> portfolios = portfolioRepository.findByUserEmail(userEmail);
-
-        // Map the response
-        return portfolios.stream()
+        return portfolioRepository.findByUserEmail(userEmail).stream()
                 .map(portfolio -> new PortfolioResponse(
                         portfolio.getId(),
                         portfolio.getName(),
                         portfolio.getDescription(),
                         portfolio.getCreatedAt(),
-                        portfolio.getUserEmail() // Use the email field
+                        portfolio.getUserEmail()
                 ))
                 .collect(Collectors.toList());
     }
@@ -60,7 +56,6 @@ public class PortfolioService {
         Portfolio portfolio = portfolioRepository.findById(portfolioId)
                 .orElseThrow(() -> new RuntimeException("Portfolio not found with id: " + portfolioId));
 
-        // --- NEW, SIMPLE CHECK ---
         if (!portfolio.getUserEmail().equals(userEmail)) {
             throw new RuntimeException("Access Denied: You do not own this portfolio.");
         }
@@ -81,14 +76,11 @@ public class PortfolioService {
         Portfolio portfolio = portfolioRepository.findById(portfolioId)
                 .orElseThrow(() -> new RuntimeException("Portfolio not found with id: " + portfolioId));
 
-        // --- NEW, SIMPLE CHECK ---
         if (!portfolio.getUserEmail().equals(userEmail)) {
             throw new RuntimeException("Access Denied: You do not own this portfolio.");
         }
 
-        List<PortfolioAsset> assets = portfolioAssetRepository.findAllByPortfolioId(portfolioId);
-
-        return assets.stream()
+        return portfolioAssetRepository.findAllByPortfolioId(portfolioId).stream()
                 .map(asset -> new PortfolioAssetResponse(
                         asset.getId(),
                         asset.getSymbol(),
@@ -108,7 +100,6 @@ public class PortfolioService {
         PortfolioAsset asset = portfolioAssetRepository.findById(assetId)
                 .orElseThrow(() -> new RuntimeException("Asset not found with id: " + assetId));
 
-        // --- NEW, SIMPLE CHECK ---
         if (!portfolio.getUserEmail().equals(userEmail)) {
             throw new RuntimeException("Access Denied: You do not own this portfolio.");
         }
@@ -119,8 +110,6 @@ public class PortfolioService {
 
         portfolioAssetRepository.delete(asset);
     }
-
-    // --- INTERNAL METHODS FOR LEADERBOARD SERVICE ---
 
     @Transactional(readOnly = true)
     public List<UUID> getAllPortfolioIds() {
@@ -138,5 +127,22 @@ public class PortfolioService {
                         portfolio.getUserEmail()
                 ))
                 .orElseThrow(() -> new RuntimeException("Portfolio not found with id: " + portfolioId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PortfolioAssetResponse> getAssetsForPortfolioInternal(UUID portfolioId) {
+        Portfolio portfolio = portfolioRepository.findById(portfolioId)
+                .orElseThrow(() -> new RuntimeException("Portfolio not found with id: " + portfolioId));
+
+        return portfolioAssetRepository.findAllByPortfolioId(portfolioId).stream()
+                .map(asset -> new PortfolioAssetResponse(
+                        asset.getId(),
+                        asset.getSymbol(),
+                        asset.getQuantity(),
+                        asset.getPurchasePrice(),
+                        asset.getPurchaseDate(),
+                        portfolio.getId()
+                ))
+                .collect(Collectors.toList());
     }
 }

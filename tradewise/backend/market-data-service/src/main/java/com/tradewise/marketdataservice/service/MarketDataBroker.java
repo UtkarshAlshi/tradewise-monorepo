@@ -6,6 +6,7 @@ import com.tradewise.marketdataservice.dto.finnhub.FinnhubMessage;
 import com.tradewise.marketdataservice.dto.finnhub.FinnhubTrade;
 import com.tradewise.marketdataservice.dto.response.StockPriceUpdate;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.slf4j.Logger;
@@ -16,13 +17,19 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.net.URI;
-import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class MarketDataBroker {
 
     private static final Logger logger = LoggerFactory.getLogger(MarketDataBroker.class);
+
+    private static final List<String> SYMBOLS_TO_SUBSCRIBE = List.of(
+            "AAPL", "MSFT", "GOOGL", "AMZN", "IBM", "BINANCE:BTCUSDT", "BINANCE:ETHUSDT"
+    );
 
     @Value("${tradewise.app.finnhub.apikey}")
     private String finnhubApiKey;
@@ -30,13 +37,11 @@ public class MarketDataBroker {
     @Value("${tradewise.app.finnhub.websocket.url}")
     private String finnhubWsUrl;
 
-    private static final List<String> SYMBOLS_TO_SUBSCRIBE = Arrays.asList(
-            "AAPL", "MSFT", "GOOGL", "AMZN", "IBM", "BINANCE:BTCUSDT", "BINANCE:ETHUSDT"
-    );
-
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, StockPriceUpdate> kafkaTemplate;
-    private WebSocketClient webSocketClient;
+    private final ScheduledExecutorService reconnectExecutor = Executors.newSingleThreadScheduledExecutor();
+
+    private volatile WebSocketClient webSocketClient;
 
     public MarketDataBroker(ObjectMapper objectMapper,
                             KafkaTemplate<String, StockPriceUpdate> kafkaTemplate) {
@@ -46,18 +51,21 @@ public class MarketDataBroker {
 
     @PostConstruct
     public void connect() {
+        connectToFinnhub();
+    }
+
+    private void connectToFinnhub() {
         try {
             URI uri = new URI(finnhubWsUrl + "?token=" + finnhubApiKey);
 
             this.webSocketClient = new WebSocketClient(uri) {
-
                 @Override
                 public void onOpen(ServerHandshake handshakedata) {
-                    logger.info("Connected to Finnhub WebSocket.");
+                    logger.info("Connected to Finnhub WebSocket");
                     for (String symbol : SYMBOLS_TO_SUBSCRIBE) {
                         String subscribeMessage = String.format("{\"type\":\"subscribe\",\"symbol\":\"%s\"}", symbol);
-                        logger.info("Subscribing to " + symbol);
-                        this.send(subscribeMessage);
+                        logger.info("Subscribing to {}", symbol);
+                        send(subscribeMessage);
                     }
                 }
 
@@ -74,14 +82,16 @@ public class MarketDataBroker {
                             }
                         }
                     } catch (JsonProcessingException e) {
-                        // logger.debug("Received non-trade message: " + message);
+                        logger.debug("Ignoring non-trade or unparsable Finnhub message");
+                    } catch (Exception e) {
+                        logger.error("Unexpected error while processing Finnhub message", e);
                     }
                 }
 
                 @Override
                 public void onClose(int code, String reason, boolean remote) {
-                    logger.warn("Disconnected from Finnhub WebSocket: " + reason);
-                    // TODO: Implement reconnection logic
+                    logger.warn("Disconnected from Finnhub WebSocket. Code: {}, Reason: {}, Remote: {}", code, reason, remote);
+                    scheduleReconnect();
                 }
 
                 @Override
@@ -90,19 +100,37 @@ public class MarketDataBroker {
                 }
             };
 
-            logger.info("Connecting to Finnhub...");
-            this.webSocketClient.connectBlocking();
-
+            logger.info("Connecting to Finnhub WebSocket...");
+            this.webSocketClient.connect();
         } catch (Exception e) {
-            logger.error("Failed to connect to WebSocket", e);
+            logger.error("Failed to initialize Finnhub WebSocket", e);
+            scheduleReconnect();
         }
+    }
+
+    private void scheduleReconnect() {
+        reconnectExecutor.schedule(() -> {
+            logger.info("Attempting Finnhub reconnect...");
+            connectToFinnhub();
+        }, 10, TimeUnit.SECONDS);
     }
 
     private void broadcastPrice(String symbol, BigDecimal price) {
         StockPriceUpdate update = new StockPriceUpdate(symbol, price);
-
-        logger.info("Publishing price update to Kafka: {} at Price: ${}", symbol, price);
         kafkaTemplate.send("price-updates", symbol, update);
-        logger.debug("Kafka send completed for: {}", symbol);
+        logger.debug("Published price update to Kafka: {} -> {}", symbol, price);
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        try {
+            if (webSocketClient != null) {
+                webSocketClient.close();
+            }
+        } catch (Exception e) {
+            logger.warn("Error while closing WebSocket client", e);
+        }
+
+        reconnectExecutor.shutdownNow();
     }
 }

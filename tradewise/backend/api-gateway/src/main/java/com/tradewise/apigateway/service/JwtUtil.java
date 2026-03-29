@@ -17,28 +17,23 @@ public class JwtUtil {
     @Value("${tradewise.app.jwtSecret}")
     private String jwtSecret;
 
-    // Extracts the email (subject) from a JWT.
     public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
-    // Extracts the user ID from a JWT.
     public String extractUserId(String token) {
         return extractClaim(token, claims -> claims.get("userId", String.class));
     }
 
-    // Extracts the expiration date from a JWT.
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    // Generic method to extract a specific "claim" (data) from the token.
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
+        Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
 
-    // Helper method to parse the token and get all its data.
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
@@ -47,24 +42,21 @@ public class JwtUtil {
                 .getPayload();
     }
 
-    // Checks if a token is expired.
-    public Boolean isTokenExpired(String token) {
+    public boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
 
-    // Validates the token (checks expiration).
-    public Boolean validateToken(String token) {
+    public boolean validateToken(String token) {
         try {
-            return !isTokenExpired(token);
+            Claims claims = extractAllClaims(token);
+            return claims.getSubject() != null && !isTokenExpired(token);
         } catch (Exception e) {
-            // If any exception occurs (expired, malformed, signature invalid), return false
             return false;
         }
     }
 
-    // Helper method to create the signing key.
     private SecretKey getSigningKey() {
-        byte[] keyBytes = this.jwtSecret.getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }

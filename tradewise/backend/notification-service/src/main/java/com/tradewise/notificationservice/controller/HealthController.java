@@ -9,10 +9,6 @@ import java.sql.Connection;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Health checks for notification-service.
- * Exposes readiness/liveness endpoints for orchestrators (Docker, Kubernetes).
- */
 @RestController
 public class HealthController {
 
@@ -37,13 +33,14 @@ public class HealthController {
     }
 
     private String checkDatabase() {
-        try {
-            Connection conn = dataSource.getConnection();
-            conn.close();
+        if (dataSource == null) {
+            return "not-configured";
+        }
+
+        try (Connection conn = dataSource.getConnection()) {
             return "connected";
         } catch (Exception e) {
             return "disconnected: " + e.getMessage();
         }
     }
 }
-

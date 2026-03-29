@@ -27,7 +27,7 @@ public class StrategyRule {
     private Strategy strategy;
 
     @Column(nullable = false)
-    private String type; // e.g., "ALL", "ANY"
+    private String action; // BUY or SELL
 
     @OneToMany(mappedBy = "rule", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JsonManagedReference

@@ -19,7 +19,6 @@ public class LeaderboardController {
 
     @GetMapping
     public ResponseEntity<List<LeaderboardEntryResponse>> getLeaderboard() {
-        List<LeaderboardEntryResponse> leaderboard = leaderboardService.getLeaderboard();
-        return ResponseEntity.ok(leaderboard);
+        return ResponseEntity.ok(leaderboardService.getLeaderboard());
     }
 }

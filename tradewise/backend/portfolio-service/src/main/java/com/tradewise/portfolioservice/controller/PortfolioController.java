@@ -43,8 +43,7 @@ public class PortfolioController {
                 newPortfolio.getCreatedAt(),
                 newPortfolio.getUserEmail()
         );
-        
-        log.info("Successfully created portfolio with ID: {}", newPortfolio.getId());
+
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
@@ -52,10 +51,7 @@ public class PortfolioController {
     public ResponseEntity<List<PortfolioResponse>> getPortfolios(
             @RequestHeader("X-User-Email") String userEmail) {
 
-        log.info("Fetching portfolios for user: {}", userEmail);
         List<PortfolioResponse> portfolios = portfolioService.getPortfoliosByUser(userEmail);
-        log.info("Found {} portfolios for user {}", portfolios.size(), userEmail);
-
         return ResponseEntity.ok(portfolios);
     }
 
@@ -65,7 +61,6 @@ public class PortfolioController {
             @Valid @RequestBody AddAssetRequest request,
             @RequestHeader("X-User-Email") String userEmail) {
 
-        log.info("Adding asset {} to portfolio {} for user {}", request.getSymbol(), portfolioId, userEmail);
         PortfolioAsset savedAsset = portfolioService.addAssetToPortfolio(portfolioId, request, userEmail);
 
         PortfolioAssetResponse response = new PortfolioAssetResponse(
@@ -85,10 +80,7 @@ public class PortfolioController {
             @PathVariable UUID portfolioId,
             @RequestHeader("X-User-Email") String userEmail) {
 
-        log.info("Fetching assets for portfolio {} and user {}", portfolioId, userEmail);
-        List<PortfolioAssetResponse> response = portfolioService.getAssetsForPortfolio(portfolioId, userEmail);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(portfolioService.getAssetsForPortfolio(portfolioId, userEmail));
     }
 
     @DeleteMapping("/{portfolioId}/assets/{assetId}")
@@ -97,25 +89,22 @@ public class PortfolioController {
             @PathVariable UUID assetId,
             @RequestHeader("X-User-Email") String userEmail) {
 
-        log.info("Deleting asset {} from portfolio {} for user {}", assetId, portfolioId, userEmail);
         portfolioService.deleteAssetFromPortfolio(portfolioId, assetId, userEmail);
-
         return ResponseEntity.noContent().build();
     }
 
-    // --- INTERNAL ENDPOINTS FOR LEADERBOARD SERVICE ---
-
     @GetMapping("/internal/ids")
     public ResponseEntity<List<UUID>> getAllPortfolioIds() {
-        log.info("Internal request for all portfolio IDs");
-        List<UUID> ids = portfolioService.getAllPortfolioIds();
-        return ResponseEntity.ok(ids);
+        return ResponseEntity.ok(portfolioService.getAllPortfolioIds());
     }
 
     @GetMapping("/{id}/analytics/internal")
     public ResponseEntity<PortfolioResponse> getPortfolioForAnalytics(@PathVariable UUID id) {
-        log.info("Internal request for portfolio analytics with ID: {}", id);
-        PortfolioResponse portfolio = portfolioService.getPortfolioForAnalytics(id);
-        return ResponseEntity.ok(portfolio);
+        return ResponseEntity.ok(portfolioService.getPortfolioForAnalytics(id));
+    }
+
+    @GetMapping("/{id}/assets/internal")
+    public ResponseEntity<List<PortfolioAssetResponse>> getAssetsForPortfolioInternal(@PathVariable UUID id) {
+        return ResponseEntity.ok(portfolioService.getAssetsForPortfolioInternal(id));
     }
 }

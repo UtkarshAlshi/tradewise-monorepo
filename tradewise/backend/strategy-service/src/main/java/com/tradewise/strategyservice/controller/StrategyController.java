@@ -1,5 +1,6 @@
 package com.tradewise.strategyservice.controller;
 
+import com.tradewise.strategyservice.dto.internal.InternalStrategyResponse;
 import com.tradewise.strategyservice.dto.response.StrategyResponse;
 import com.tradewise.strategyservice.dto.strategy.CreateStrategyRequest;
 import com.tradewise.strategyservice.model.Strategy;
@@ -11,8 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID; // <-- ADD
-import org.springframework.web.bind.annotation.PathVariable; // <-- ADD
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/strategies")
@@ -42,19 +42,13 @@ public class StrategyController {
     @GetMapping
     public ResponseEntity<List<StrategyResponse>> getStrategies(
             @RequestHeader("X-User-Email") String userEmail) {
-        List<StrategyResponse> strategies = strategyService.getStrategiesByUser(userEmail);
-        return ResponseEntity.ok(strategies);
+        return ResponseEntity.ok(strategyService.getStrategiesByUser(userEmail));
     }
 
-    // --- ADD THIS NEW ENDPOINT ---
     @GetMapping("/{id}/internal")
-    public ResponseEntity<Strategy> getStrategyForBacktest(
+    public ResponseEntity<InternalStrategyResponse> getStrategyForBacktest(
             @PathVariable UUID id,
             @RequestHeader("X-User-Email") String userEmail) {
-        
-        // Note: We are returning the FULL entity here, not a DTO.
-        // This is generally OK for a trusted, internal service call.
-        Strategy strategy = strategyService.getStrategyById(id, userEmail);
-        return ResponseEntity.ok(strategy);
+        return ResponseEntity.ok(strategyService.getStrategyById(id, userEmail));
     }
 }

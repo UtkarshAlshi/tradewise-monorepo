@@ -1,9 +1,11 @@
 package com.tradewise.strategyservice.dto.strategy;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -16,5 +18,6 @@ public class CreateStrategyRequest {
     @Size(max = 500)
     private String description;
 
-    private List<StrategyRuleDTO> rules;
+    @Valid
+    private List<StrategyRuleDTO> rules = new ArrayList<>();
 }

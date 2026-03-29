@@ -3,6 +3,7 @@ package com.tradewise.leaderboardservice.service;
 import com.tradewise.leaderboardservice.dto.LeaderboardEntryResponse;
 import com.tradewise.leaderboardservice.dto.PortfolioAssetResponse;
 import com.tradewise.leaderboardservice.dto.PortfolioResponse;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,7 +27,7 @@ import java.util.stream.Collectors;
 public class LeaderboardService {
 
     private final WebClient webClient;
-    private volatile List<LeaderboardEntryResponse> cachedLeaderboard = new ArrayList<>();
+    private volatile List<LeaderboardEntryResponse> cachedLeaderboard = List.of();
 
     @Value("${portfolio.service.url}")
     private String portfolioServiceUrl;
@@ -39,16 +40,22 @@ public class LeaderboardService {
     }
 
     public List<LeaderboardEntryResponse> getLeaderboard() {
-        return cachedLeaderboard;
+        return List.copyOf(cachedLeaderboard);
     }
 
-    @Scheduled(fixedRate = 3600000) // Run every hour
+    @PostConstruct
+    public void initializeLeaderboard() {
+        updateLeaderboard();
+    }
+
+    @Scheduled(fixedRate = 3600000)
     public void updateLeaderboard() {
         log.info("Starting leaderboard update...");
 
         fetchPortfolioIds()
                 .flatMap(this::fetchPortfolioDetails)
-                .flatMap(this::calculatePortfolioAnalytics)
+                .flatMap(this::calculatePortfolioAnalytics
+                        , 8)
                 .collectList()
                 .map(this::rankAndCache)
                 .subscribe(
@@ -68,7 +75,9 @@ public class LeaderboardService {
         return webClient.get()
                 .uri(portfolioServiceUrl + "/api/portfolios/" + portfolioId + "/analytics/internal")
                 .retrieve()
-                .bodyToMono(PortfolioResponse.class);
+                .bodyToMono(PortfolioResponse.class)
+                .doOnError(error -> log.warn("Failed to fetch portfolio details for {}", portfolioId, error))
+                .onErrorResume(error -> Mono.empty());
     }
 
     private Mono<LeaderboardEntryResponse> calculatePortfolioAnalytics(PortfolioResponse portfolio) {
@@ -86,39 +95,47 @@ public class LeaderboardService {
                                     portfolio.getUserEmail(),
                                     totalReturn
                             ));
-                });
+                })
+                .doOnError(error -> log.warn("Failed to calculate analytics for portfolio {}", portfolio.getId(), error))
+                .onErrorResume(error -> Mono.empty());
     }
 
     private Flux<PortfolioAssetResponse> fetchAssetsForPortfolio(UUID portfolioId) {
         return webClient.get()
-                .uri(portfolioServiceUrl + "/api/portfolios/" + portfolioId + "/assets")
-                .header("X-User-Email", "leaderboard-service") // Dummy header
+                .uri(portfolioServiceUrl + "/api/portfolios/" + portfolioId + "/assets/internal")
                 .retrieve()
-                .bodyToFlux(PortfolioAssetResponse.class);
+                .bodyToFlux(PortfolioAssetResponse.class)
+                .doOnError(error -> log.warn("Failed to fetch assets for portfolio {}", portfolioId, error))
+                .onErrorResume(error -> Flux.empty());
     }
 
     private Mono<BigDecimal> calculateTotalReturn(List<PortfolioAssetResponse> assets) {
         ConcurrentHashMap<String, BigDecimal> currentPrices = new ConcurrentHashMap<>();
-        BigDecimal totalPurchaseCost = BigDecimal.ZERO;
+        BigDecimal totalPurchaseCost = assets.stream()
+                .map(asset -> asset.getPurchasePrice().multiply(asset.getQuantity()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        for (PortfolioAssetResponse asset : assets) {
-            totalPurchaseCost = totalPurchaseCost.add(asset.getPurchasePrice().multiply(asset.getQuantity()));
+        if (totalPurchaseCost.compareTo(BigDecimal.ZERO) == 0) {
+            return Mono.just(BigDecimal.ZERO);
         }
 
-        final BigDecimal finalTotalPurchaseCost = totalPurchaseCost;
+        BigDecimal finalTotalPurchaseCost = totalPurchaseCost;
 
         return Flux.fromIterable(assets)
-                .flatMap(asset -> fetchCurrentPrice(asset.getSymbol())
-                        .doOnNext(price -> currentPrices.put(asset.getSymbol(), price)))
+                .flatMap(asset ->
+                        fetchCurrentPrice(asset.getSymbol())
+                                .defaultIfEmpty(asset.getPurchasePrice())
+                                .map(price -> {
+                                    currentPrices.put(asset.getSymbol(), price);
+                                    return price;
+                                })
+                )
                 .then(Mono.fromCallable(() -> {
                     BigDecimal totalMarketValue = assets.stream()
-                            .map(asset -> currentPrices.getOrDefault(asset.getSymbol(), asset.getPurchasePrice())
+                            .map(asset -> currentPrices
+                                    .getOrDefault(asset.getSymbol(), asset.getPurchasePrice())
                                     .multiply(asset.getQuantity()))
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-                    if (finalTotalPurchaseCost.compareTo(BigDecimal.ZERO) == 0) {
-                        return BigDecimal.ZERO;
-                    }
 
                     return totalMarketValue.subtract(finalTotalPurchaseCost)
                             .divide(finalTotalPurchaseCost, 4, RoundingMode.HALF_UP)
@@ -128,24 +145,24 @@ public class LeaderboardService {
 
     private Mono<BigDecimal> fetchCurrentPrice(String symbol) {
         return webClient.get()
-                .uri(marketDataServiceUrl + "/api/market-data/" + symbol)
-                .header("X-User-Email", "leaderboard-service") // Dummy header
+                .uri(marketDataServiceUrl + "/api/market-data/" + symbol + "/internal")
                 .retrieve()
                 .bodyToMono(String.class)
                 .map(BigDecimal::new)
-                .onErrorResume(e -> Mono.empty()); // Ignore assets with no current price
+                .doOnError(error -> log.warn("Failed to fetch current price for symbol {}", symbol, error))
+                .onErrorResume(error -> Mono.empty());
     }
 
     private List<LeaderboardEntryResponse> rankAndCache(List<LeaderboardEntryResponse> entries) {
         entries.sort(Comparator.comparing(LeaderboardEntryResponse::getTotalReturnPercent).reversed());
 
         AtomicInteger rank = new AtomicInteger(1);
-        List<LeaderboardEntryResponse> top10 = entries.stream()
+        List<LeaderboardEntryResponse> ranked = entries.stream()
                 .peek(entry -> entry.setRank(rank.getAndIncrement()))
                 .limit(10)
                 .collect(Collectors.toList());
 
-        this.cachedLeaderboard = top10;
-        return top10;
+        this.cachedLeaderboard = List.copyOf(ranked);
+        return ranked;
     }
 }

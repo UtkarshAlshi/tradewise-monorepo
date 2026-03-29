@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class NotificationService {
@@ -37,19 +38,27 @@ public class NotificationService {
 
     @KafkaListener(topics = "price-updates", groupId = "price-broadcasters")
     public void broadcastPriceUpdate(StockPriceUpdate update) {
-        if (update == null) return;
-        String topic = "/topic/prices/" + update.getSymbol();
-        logger.info("Broadcasting price update: {} -> Price: ${}. Sending to topic: {}", update.getSymbol(), update.getPrice(), topic);
+        if (update == null || update.getSymbol() == null || update.getPrice() == null) {
+            return;
+        }
+
+        String normalizedSymbol = update.getSymbol().toUpperCase(Locale.ROOT);
+        update.setSymbol(normalizedSymbol);
+
+        String topic = "/topic/prices/" + normalizedSymbol;
+        logger.info("Broadcasting price update: {} -> {} to topic {}", normalizedSymbol, update.getPrice(), topic);
+
         messagingTemplate.convertAndSend(topic, update);
-        logger.debug("Broadcast completed for: {}", topic);
     }
 
     @KafkaListener(topics = "price-updates", groupId = "strategy-checkers")
     @Transactional
     public void handlePriceUpdateForAlerts(StockPriceUpdate event) {
-        if (event == null) return;
-        String symbol = event.getSymbol();
+        if (event == null || event.getSymbol() == null || event.getPrice() == null) {
+            return;
+        }
 
+        String symbol = event.getSymbol().toUpperCase(Locale.ROOT);
         List<ActiveStrategy> monitors = activeStrategyRepository.findAllBySymbolAndIsActive(symbol, true);
 
         if (monitors.isEmpty()) {
@@ -57,6 +66,12 @@ public class NotificationService {
         }
 
         for (ActiveStrategy monitor : monitors) {
+            if (monitor.getUser() == null || monitor.getUser().getEmail() == null ||
+                    monitor.getStrategy() == null || monitor.getStrategy().getName() == null) {
+                logger.warn("Skipping malformed ActiveStrategy id={}", monitor.getId());
+                continue;
+            }
+
             if (forceTrigger || Math.random() < 0.01) {
                 logger.info("SIMULATED TRIGGER: Strategy {} for symbol {} for user {}",
                         monitor.getStrategy().getName(), symbol, monitor.getUser().getEmail());
@@ -65,13 +80,14 @@ public class NotificationService {
                         "Strategy Triggered: '%s' for %s at price $%s",
                         monitor.getStrategy().getName(),
                         symbol,
-                        event.getPrice().toString()
+                        event.getPrice()
                 );
 
                 Notification notification = new Notification();
                 notification.setUser(monitor.getUser());
                 notification.setMessage(message);
                 notification.setRead(false);
+
                 Notification savedNotification = notificationRepository.save(notification);
 
                 messagingTemplate.convertAndSendToUser(

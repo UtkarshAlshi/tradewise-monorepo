@@ -1,9 +1,13 @@
 package com.tradewise.notificationservice.model;
 
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "strategies")
+@Data
+@NoArgsConstructor
 public class Strategy {
 
     @Id
@@ -11,11 +15,4 @@ public class Strategy {
     private Long id;
 
     private String name;
-
-    public Strategy() {}
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
 }

@@ -3,8 +3,6 @@ networks:
     driver: bridge
 
 services:
-  # --- INFRASTRUCTURE ---
-  
   postgres:
     image: postgres:15
     networks:
@@ -14,10 +12,15 @@ services:
       POSTGRES_PASSWORD: tradewise_pass
       POSTGRES_DB: tradewise_db
     ports:
-      - "5433:5432" # Mapped to 5433 to avoid conflict with local Postgres
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tradewise_user -d tradewise_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   kafka:
     image: confluentinc/cp-kafka:latest
@@ -44,8 +47,6 @@ services:
       timeout: 10s
       retries: 10
 
-  # --- MICROSERVICES ---
-
   api-gateway:
     build: ./backend/api-gateway
     networks:
@@ -53,14 +54,21 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
       - SERVER_PORT=8000
     depends_on:
       user-service:
         condition: service_started
       portfolio-service:
         condition: service_started
+      strategy-service:
+        condition: service_started
+      market-data-service:
+        condition: service_started
+      backtesting-service:
+        condition: service_started
       notification-service:
+        condition: service_started
+      leaderboard-service:
         condition: service_started
 
   user-service:
@@ -74,7 +82,7 @@ services:
       - SPRING_DATASOURCE_PASSWORD=tradewise_pass
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
 
   portfolio-service:
     build: ./backend/portfolio-service
@@ -87,7 +95,7 @@ services:
       - SPRING_DATASOURCE_PASSWORD=tradewise_pass
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
 
   strategy-service:
     build: ./backend/strategy-service
@@ -100,7 +108,7 @@ services:
       - SPRING_DATASOURCE_PASSWORD=tradewise_pass
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
 
   market-data-service:
     build: ./backend/market-data-service
@@ -110,7 +118,7 @@ services:
       - SERVER_PORT=8084
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - FINNHUB_API_KEY=d43mb5pr01qvet2pnvtgd43mb5pr01qvet2pnvu0
-      - ALPHAVANTAGE_API_KEY=demo # Use 'demo' for testing (works with IBM)
+      - ALPHAVANTAGE_API_KEY=demo
     depends_on:
       kafka:
         condition: service_healthy
@@ -123,14 +131,13 @@ services:
       - "8086:8086"
     environment:
       - SERVER_PORT=8086
-      - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tradewise_notification_db
       - SPRING_DATASOURCE_USERNAME=tradewise_user
       - SPRING_DATASOURCE_PASSWORD=tradewise_pass
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       kafka:
         condition: service_healthy
 
@@ -138,12 +145,17 @@ services:
     build: ./backend/backtesting-service
     networks:
       - tradewise-net
-    ports: 
+    ports:
       - "8085:8085"
     environment:
       - SERVER_PORT=8085
       - STRATEGY_SERVICE_HOST=strategy-service:8083
       - MARKET_DATA_SERVICE_HOST=market-data-service:8084
+    depends_on:
+      strategy-service:
+        condition: service_started
+      market-data-service:
+        condition: service_started
 
   leaderboard-service:
     build: ./backend/leaderboard-service
@@ -153,10 +165,13 @@ services:
       - "8087:8087"
     environment:
       - SERVER_PORT=8087
-      - SPRING_PROFILES_ACTIVE=docker
+      - PORTFOLIO_SERVICE_URL=http://portfolio-service:8082
+      - MARKET_DATA_SERVICE_URL=http://market-data-service:8084
     depends_on:
-      - portfolio-service
-      - market-data-service
+      portfolio-service:
+        condition: service_started
+      market-data-service:
+        condition: service_started
 
 volumes:
   postgres_data:
