@@ -13,18 +13,15 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.ta4j.core.*;
-import org.ta4j.core.AnalysisCriterion.PositionFilter;
 import org.ta4j.core.Trade;
-import org.ta4j.core.analysis.CashFlow;
 import org.ta4j.core.backtest.BarSeriesManager;
 import org.ta4j.core.criteria.MaximumDrawdownCriterion;
-import org.ta4j.core.criteria.NumberOfPositionsCriterion;
-import org.ta4j.core.criteria.PositionsRatioCriterion;
 import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.SMAIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.num.DecimalNum;
+import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.*;
 
 import java.math.BigDecimal;
@@ -85,7 +82,9 @@ public class BacktestingService {
         // 2. Fetch historical bars
         String dataUrl = String.format(
                 "http://" + MARKET_DATA_SERVICE_HOST + "/api/market-data/history/internal?symbol=%s&startDate=%s&endDate=%s",
-                request.getSymbol(), request.getStartDate(), request.getEndDate()
+                request.getSymbol(),
+                request.getStartDate(),
+                request.getEndDate()
         );
 
         HttpEntity<Void> dataEntity = new HttpEntity<>(headers);
@@ -131,6 +130,7 @@ public class BacktestingService {
                 DecimalNum.valueOf(amountToTrade)
         );
 
+        // Force-close any open position at the end of the series
         if (tradingRecord.getCurrentPosition().isOpened()) {
             logger.info("Closing open position at end of series");
             tradingRecord.exit(
@@ -140,7 +140,7 @@ public class BacktestingService {
             );
         }
 
-        logger.info("Backtest finished. Total trades: {}", tradingRecord.getTrades().size());
+        logger.info("Backtest finished. Total positions: {}", tradingRecord.getPositionCount());
 
         return calculateReport(
                 strategy.getName(),
@@ -180,7 +180,7 @@ public class BacktestingService {
     }
 
     private BaseStrategy buildTa4jStrategy(InternalStrategyResponse dbStrategy, BarSeries barSeries) {
-        Map<String, Indicator> indicatorCache = new HashMap<>();
+        Map<String, Indicator<Num>> indicatorCache = new HashMap<>();
 
         Rule entryRule = new BooleanRule(false);
         Rule exitRule = new BooleanRule(false);
@@ -200,11 +200,13 @@ public class BacktestingService {
             Rule combinedRuleForConditions = new BooleanRule(true);
 
             for (InternalStrategyConditionResponse dbCondition : dbRule.getConditions()) {
-                logger.info("Condition: {} {} {} {}",
+                logger.info(
+                        "Condition: {} {} {} {}",
                         dbCondition.getIndicatorA(),
                         dbCondition.getOperator(),
                         dbCondition.getIndicatorBType(),
-                        dbCondition.getIndicatorBValue());
+                        dbCondition.getIndicatorBValue()
+                );
 
                 Rule conditionRule = buildTa4jRule(dbCondition, barSeries, indicatorCache);
                 combinedRuleForConditions = combinedRuleForConditions.and(conditionRule);
@@ -234,14 +236,14 @@ public class BacktestingService {
     private Rule buildTa4jRule(
             InternalStrategyConditionResponse condition,
             BarSeries series,
-            Map<String, Indicator> cache
+            Map<String, Indicator<Num>> cache
     ) {
         String indicatorAName = requireNonBlank(condition.getIndicatorA(), "indicatorA");
         String operator = requireNonBlank(condition.getOperator(), "operator");
         String indicatorBType = requireNonBlank(condition.getIndicatorBType(), "indicatorBType");
         String indicatorBValue = requireNonBlank(condition.getIndicatorBValue(), "indicatorBValue");
 
-        Indicator indicatorA = getIndicator(indicatorAName, condition.getIndicatorAParams(), series, cache);
+        Indicator<Num> indicatorA = getIndicator(indicatorAName, condition.getIndicatorAParams(), series, cache);
 
         if ("VALUE".equalsIgnoreCase(indicatorBType)) {
             DecimalNum valueB;
@@ -251,41 +253,33 @@ public class BacktestingService {
                 throw new RuntimeException("Invalid numeric indicatorBValue: " + indicatorBValue);
             }
 
-            switch (operator.toUpperCase(Locale.ROOT)) {
-                case "GREATER_THAN":
-                    return new OverIndicatorRule(indicatorA, valueB);
-                case "LESS_THAN":
-                    return new UnderIndicatorRule(indicatorA, valueB);
-                default:
-                    throw new RuntimeException("Unsupported operator for VALUE comparison: " + operator);
-            }
+            return switch (operator.toUpperCase(Locale.ROOT)) {
+                case "GREATER_THAN" -> new OverIndicatorRule(indicatorA, valueB);
+                case "LESS_THAN" -> new UnderIndicatorRule(indicatorA, valueB);
+                default -> throw new RuntimeException("Unsupported operator for VALUE comparison: " + operator);
+            };
         }
 
         if ("INDICATOR".equalsIgnoreCase(indicatorBType)) {
-            Indicator indicatorB = getIndicator(indicatorBValue, condition.getIndicatorBParams(), series, cache);
+            Indicator<Num> indicatorB = getIndicator(indicatorBValue, condition.getIndicatorBParams(), series, cache);
 
-            switch (operator.toUpperCase(Locale.ROOT)) {
-                case "GREATER_THAN":
-                    return new OverIndicatorRule(indicatorA, indicatorB);
-                case "LESS_THAN":
-                    return new UnderIndicatorRule(indicatorA, indicatorB);
-                case "CROSSES_ABOVE":
-                    return new CrossedUpIndicatorRule(indicatorA, indicatorB);
-                case "CROSSES_BELOW":
-                    return new CrossedDownIndicatorRule(indicatorA, indicatorB);
-                default:
-                    throw new RuntimeException("Unsupported operator for INDICATOR comparison: " + operator);
-            }
+            return switch (operator.toUpperCase(Locale.ROOT)) {
+                case "GREATER_THAN" -> new OverIndicatorRule(indicatorA, indicatorB);
+                case "LESS_THAN" -> new UnderIndicatorRule(indicatorA, indicatorB);
+                case "CROSSES_ABOVE" -> new CrossedUpIndicatorRule(indicatorA, indicatorB);
+                case "CROSSES_BELOW" -> new CrossedDownIndicatorRule(indicatorA, indicatorB);
+                default -> throw new RuntimeException("Unsupported operator for INDICATOR comparison: " + operator);
+            };
         }
 
         throw new RuntimeException("Unsupported indicatorBType: " + indicatorBType);
     }
 
-    private Indicator getIndicator(
+    private Indicator<Num> getIndicator(
             String name,
             Map<String, String> params,
             BarSeries series,
-            Map<String, Indicator> cache
+            Map<String, Indicator<Num>> cache
     ) {
         String normalizedName = requireNonBlank(name, "indicator name").toUpperCase(Locale.ROOT);
         Map<String, String> safeParams = params == null ? Collections.emptyMap() : new TreeMap<>(params);
@@ -298,7 +292,7 @@ public class BacktestingService {
         logger.info("Creating indicator: {} with params: {}", normalizedName, safeParams);
 
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        Indicator indicator;
+        Indicator<Num> indicator;
 
         switch (normalizedName) {
             case "PRICE":
@@ -352,37 +346,70 @@ public class BacktestingService {
             TradingRecord record,
             Double initialCash
     ) {
-        if (record.getTrades().isEmpty()) {
+        int totalPositions = record.getPositionCount();
+
+        if (totalPositions == 0) {
             return emptyReport(strategyName, symbol);
         }
 
-        CashFlow cashFlow = new CashFlow(series, record, DecimalNum.valueOf(initialCash).intValue());
+        BigDecimal realizedPnl = BigDecimal.ZERO;
+        int winningPositions = 0;
 
-        BigDecimal finalValue = (BigDecimal) cashFlow.getValue(series.getEndIndex()).getDelegate();
-        BigDecimal pnl = finalValue.subtract(BigDecimal.valueOf(initialCash));
-        BigDecimal returnPercent = pnl.divide(BigDecimal.valueOf(initialCash), 4, RoundingMode.HALF_UP)
+        for (Position position : record.getPositions()) {
+            if (!position.isClosed()) {
+                continue;
+            }
+
+            BigDecimal entryPrice = toBigDecimal(position.getEntry().getNetPrice());
+            BigDecimal exitPrice = toBigDecimal(position.getExit().getNetPrice());
+            BigDecimal amount = toBigDecimal(position.getEntry().getAmount());
+
+            // Long-only positions: BUY first, SELL later
+            BigDecimal positionPnl = exitPrice.subtract(entryPrice).multiply(amount);
+
+            realizedPnl = realizedPnl.add(positionPnl);
+
+            if (positionPnl.compareTo(BigDecimal.ZERO) > 0) {
+                winningPositions++;
+            }
+        }
+
+        BigDecimal initialCashBd = BigDecimal.valueOf(initialCash);
+        BigDecimal returnPercent = BigDecimal.ZERO;
+
+        if (initialCashBd.compareTo(BigDecimal.ZERO) > 0) {
+            returnPercent = realizedPnl
+                    .divide(initialCashBd, 6, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100));
+        }
+
+        BigDecimal winRate = BigDecimal.valueOf(winningPositions)
+                .divide(BigDecimal.valueOf(totalPositions), 6, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100));
 
-        int totalTrades = new NumberOfPositionsCriterion().calculate(series, record).intValue();
-
-        BigDecimal winRate = ((BigDecimal) new PositionsRatioCriterion(PositionFilter.PROFIT)
-                .calculate(series, record)
-                .getDelegate())
-                .multiply(BigDecimal.valueOf(100));
-
-        BigDecimal maxDrawdown = ((BigDecimal) new MaximumDrawdownCriterion()
-                .calculate(series, record)
-                .getDelegate())
-                .multiply(BigDecimal.valueOf(100));
+        BigDecimal maxDrawdown = BigDecimal.ZERO;
+        try {
+            maxDrawdown = toBigDecimal(new MaximumDrawdownCriterion().calculate(series, record))
+                    .multiply(BigDecimal.valueOf(100));
+        } catch (Exception e) {
+            logger.warn("Failed to calculate max drawdown, defaulting to 0: {}", e.getMessage());
+        }
 
         return BacktestReportResponse.builder()
                 .strategyName(strategyName)
                 .symbol(symbol)
-                .totalTrades(totalTrades)
-                .totalProfitLoss(pnl.setScale(2, RoundingMode.HALF_UP))
+                .totalTrades(totalPositions)
+                .totalProfitLoss(realizedPnl.setScale(2, RoundingMode.HALF_UP))
                 .totalReturnPercent(returnPercent.setScale(2, RoundingMode.HALF_UP))
                 .winRatePercent(winRate.setScale(2, RoundingMode.HALF_UP))
                 .maxDrawdownPercent(maxDrawdown.setScale(2, RoundingMode.HALF_UP))
                 .build();
+    }
+
+    private BigDecimal toBigDecimal(Num num) {
+        if (num == null) {
+            return BigDecimal.ZERO;
+        }
+        return new BigDecimal(num.toString());
     }
 }
