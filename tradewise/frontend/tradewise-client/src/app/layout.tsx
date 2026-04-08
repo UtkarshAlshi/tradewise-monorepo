@@ -1,54 +1,17 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
-import { Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
-import { WebSocketProvider } from '@/app/context/WebSocketContext';
-import { Toaster } from 'react-hot-toast';
-import NotificationHandler from '@/components/notification-handler';
-import { MainLayout } from "@/components/main-layout";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import "@/app/globals.css";
+import { AppProviders } from "@/providers/app-providers";
 
 export const metadata: Metadata = {
   title: "TradeWise",
-  description: "Real-Time Investment & Portfolio Analytics Platform",
+  description: "Fintech strategy and portfolio dashboard",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head />
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        suppressHydrationWarning={true}
-      >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <WebSocketProvider>
-            <Toaster position="top-right" />
-            <NotificationHandler />
-            <MainLayout>
-              {children}
-            </MainLayout>
-          </WebSocketProvider>
-        </ThemeProvider>
+    <html lang="en">
+      <body>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );
