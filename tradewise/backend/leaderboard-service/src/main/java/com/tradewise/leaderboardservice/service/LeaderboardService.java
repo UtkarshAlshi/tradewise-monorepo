@@ -14,11 +14,12 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
+import java.util.AbstractMap;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -48,18 +49,17 @@ public class LeaderboardService {
         updateLeaderboard();
     }
 
-    @Scheduled(fixedRate = 3600000)
+    // Dev-friendly refresh. Change back to 3600000 later if you want hourly updates.
+    @Scheduled(fixedRate = 60000)
     public void updateLeaderboard() {
         log.info("Starting leaderboard update...");
 
         fetchPortfolioIds()
-                .flatMap(this::fetchPortfolioDetails)
-                .flatMap(this::calculatePortfolioAnalytics
-                        , 8)
+                .flatMap(this::fetchPortfolioSnapshot, 8)
                 .collectList()
-                .map(this::rankAndCache)
+                .flatMap(this::buildLeaderboard)
                 .subscribe(
-                        result -> log.info("Leaderboard update successful. Cached {} entries.", result.size()),
+                        ranked -> log.info("Leaderboard update successful. Cached {} entries.", ranked.size()),
                         error -> log.error("Error updating leaderboard", error)
                 );
     }
@@ -71,32 +71,31 @@ public class LeaderboardService {
                 .bodyToFlux(UUID.class);
     }
 
+    private Mono<PortfolioSnapshot> fetchPortfolioSnapshot(UUID portfolioId) {
+        return Mono.zip(
+                        fetchPortfolioDetails(portfolioId),
+                        fetchAssetsForPortfolio(portfolioId).collectList()
+                )
+                .flatMap(tuple -> {
+                    PortfolioResponse portfolio = tuple.getT1();
+                    List<PortfolioAssetResponse> assets = tuple.getT2();
+
+                    if (assets.isEmpty()) {
+                        return Mono.empty();
+                    }
+
+                    return Mono.just(new PortfolioSnapshot(portfolio, assets));
+                })
+                .doOnError(error -> log.warn("Failed to build portfolio snapshot for {}", portfolioId, error))
+                .onErrorResume(error -> Mono.empty());
+    }
+
     private Mono<PortfolioResponse> fetchPortfolioDetails(UUID portfolioId) {
         return webClient.get()
                 .uri(portfolioServiceUrl + "/api/portfolios/" + portfolioId + "/analytics/internal")
                 .retrieve()
                 .bodyToMono(PortfolioResponse.class)
                 .doOnError(error -> log.warn("Failed to fetch portfolio details for {}", portfolioId, error))
-                .onErrorResume(error -> Mono.empty());
-    }
-
-    private Mono<LeaderboardEntryResponse> calculatePortfolioAnalytics(PortfolioResponse portfolio) {
-        return fetchAssetsForPortfolio(portfolio.getId())
-                .collectList()
-                .flatMap(assets -> {
-                    if (assets.isEmpty()) {
-                        return Mono.empty();
-                    }
-
-                    return calculateTotalReturn(assets)
-                            .map(totalReturn -> new LeaderboardEntryResponse(
-                                    0,
-                                    portfolio.getName(),
-                                    portfolio.getUserEmail(),
-                                    totalReturn
-                            ));
-                })
-                .doOnError(error -> log.warn("Failed to calculate analytics for portfolio {}", portfolio.getId(), error))
                 .onErrorResume(error -> Mono.empty());
     }
 
@@ -109,38 +108,80 @@ public class LeaderboardService {
                 .onErrorResume(error -> Flux.empty());
     }
 
-    private Mono<BigDecimal> calculateTotalReturn(List<PortfolioAssetResponse> assets) {
-        ConcurrentHashMap<String, BigDecimal> currentPrices = new ConcurrentHashMap<>();
+    private Mono<List<LeaderboardEntryResponse>> buildLeaderboard(List<PortfolioSnapshot> snapshots) {
+        if (snapshots.isEmpty()) {
+            this.cachedLeaderboard = List.of();
+            return Mono.just(List.of());
+        }
+
+        Set<String> symbols = snapshots.stream()
+                .flatMap(snapshot -> snapshot.assets().stream())
+                .map(PortfolioAssetResponse::getSymbol)
+                .collect(Collectors.toSet());
+
+        return fetchCurrentPrices(symbols)
+                .map(priceMap -> {
+                    List<LeaderboardEntryResponse> entries = snapshots.stream()
+                            .map(snapshot -> calculatePortfolioAnalytics(snapshot, priceMap))
+                            .sorted(Comparator.comparing(LeaderboardEntryResponse::getTotalReturnPercent).reversed())
+                            .collect(Collectors.toList());
+
+                    AtomicInteger rank = new AtomicInteger(1);
+                    List<LeaderboardEntryResponse> ranked = entries.stream()
+                            .peek(entry -> entry.setRank(rank.getAndIncrement()))
+                            .limit(10)
+                            .collect(Collectors.toList());
+
+                    this.cachedLeaderboard = List.copyOf(ranked);
+                    return ranked;
+                });
+    }
+
+    private Mono<Map<String, BigDecimal>> fetchCurrentPrices(Set<String> symbols) {
+        return Flux.fromIterable(symbols)
+                .flatMap(symbol ->
+                                fetchCurrentPrice(symbol)
+                                        .map(price -> new AbstractMap.SimpleEntry<>(symbol, price)),
+                        8
+                )
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue);
+    }
+
+    private LeaderboardEntryResponse calculatePortfolioAnalytics(
+            PortfolioSnapshot snapshot,
+            Map<String, BigDecimal> currentPrices
+    ) {
+        List<PortfolioAssetResponse> assets = snapshot.assets();
+
         BigDecimal totalPurchaseCost = assets.stream()
                 .map(asset -> asset.getPurchasePrice().multiply(asset.getQuantity()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         if (totalPurchaseCost.compareTo(BigDecimal.ZERO) == 0) {
-            return Mono.just(BigDecimal.ZERO);
+            return new LeaderboardEntryResponse(
+                    0,
+                    snapshot.portfolio().getName(),
+                    snapshot.portfolio().getUserEmail(),
+                    BigDecimal.ZERO
+            );
         }
 
-        BigDecimal finalTotalPurchaseCost = totalPurchaseCost;
+        BigDecimal totalMarketValue = assets.stream()
+                .map(asset -> currentPrices
+                        .getOrDefault(asset.getSymbol(), asset.getPurchasePrice())
+                        .multiply(asset.getQuantity()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        return Flux.fromIterable(assets)
-                .flatMap(asset ->
-                        fetchCurrentPrice(asset.getSymbol())
-                                .defaultIfEmpty(asset.getPurchasePrice())
-                                .map(price -> {
-                                    currentPrices.put(asset.getSymbol(), price);
-                                    return price;
-                                })
-                )
-                .then(Mono.fromCallable(() -> {
-                    BigDecimal totalMarketValue = assets.stream()
-                            .map(asset -> currentPrices
-                                    .getOrDefault(asset.getSymbol(), asset.getPurchasePrice())
-                                    .multiply(asset.getQuantity()))
-                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalReturnPercent = totalMarketValue.subtract(totalPurchaseCost)
+                .divide(totalPurchaseCost, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100));
 
-                    return totalMarketValue.subtract(finalTotalPurchaseCost)
-                            .divide(finalTotalPurchaseCost, 4, RoundingMode.HALF_UP)
-                            .multiply(BigDecimal.valueOf(100));
-                }));
+        return new LeaderboardEntryResponse(
+                0,
+                snapshot.portfolio().getName(),
+                snapshot.portfolio().getUserEmail(),
+                totalReturnPercent
+        );
     }
 
     private Mono<BigDecimal> fetchCurrentPrice(String symbol) {
@@ -153,16 +194,8 @@ public class LeaderboardService {
                 .onErrorResume(error -> Mono.empty());
     }
 
-    private List<LeaderboardEntryResponse> rankAndCache(List<LeaderboardEntryResponse> entries) {
-        entries.sort(Comparator.comparing(LeaderboardEntryResponse::getTotalReturnPercent).reversed());
-
-        AtomicInteger rank = new AtomicInteger(1);
-        List<LeaderboardEntryResponse> ranked = entries.stream()
-                .peek(entry -> entry.setRank(rank.getAndIncrement()))
-                .limit(10)
-                .collect(Collectors.toList());
-
-        this.cachedLeaderboard = List.copyOf(ranked);
-        return ranked;
-    }
+    private record PortfolioSnapshot(
+            PortfolioResponse portfolio,
+            List<PortfolioAssetResponse> assets
+    ) {}
 }

@@ -26,6 +26,94 @@ function createDefaultRule(action: "BUY" | "SELL"): StrategyRule {
   };
 }
 
+function needsPeriod(indicator: string) {
+  return indicator === "SMA" || indicator === "EMA" || indicator === "RSI";
+}
+
+function normalizeCondition(condition: StrategyCondition): StrategyCondition {
+  const indicatorA = condition.indicatorA;
+  const indicatorBType = condition.indicatorBType;
+
+  const normalized: StrategyCondition = {
+    indicatorA,
+    indicatorAParams: needsPeriod(indicatorA)
+      ? { period: condition.indicatorAParams?.period?.trim() || "14" }
+      : {},
+    operator: condition.operator,
+    indicatorBType,
+    indicatorBValue: condition.indicatorBValue?.trim() || "",
+    indicatorBParams: {},
+  };
+
+  if (indicatorBType === "VALUE") {
+    normalized.indicatorBValue = condition.indicatorBValue?.trim() || "";
+    normalized.indicatorBParams = {};
+    return normalized;
+  }
+
+  // INDICATOR mode
+  const indicatorB = condition.indicatorBValue?.trim() || "PRICE";
+  normalized.indicatorBValue = indicatorB;
+  normalized.indicatorBParams = needsPeriod(indicatorB)
+    ? { period: condition.indicatorBParams?.period?.trim() || "14" }
+    : {};
+
+  return normalized;
+}
+
+function normalizePayload(payload: CreateStrategyRequest): CreateStrategyRequest {
+  return {
+    name: payload.name.trim(),
+    description: payload.description?.trim() || "",
+    rules: payload.rules
+      .map((rule) => ({
+        action: rule.action,
+        conditions: rule.conditions
+          .map(normalizeCondition)
+          .filter((condition) => {
+            if (!condition.indicatorA) return false;
+            if (!condition.operator) return false;
+            if (!condition.indicatorBType) return false;
+            if (!condition.indicatorBValue) return false;
+            return true;
+          }),
+      }))
+      .filter((rule) => rule.conditions.length > 0),
+  };
+}
+
+function validatePayload(payload: CreateStrategyRequest) {
+  if (!payload.name.trim()) return "Strategy name is required";
+  if (payload.rules.length === 0) return "At least one rule is required";
+  if (!payload.rules.some((rule) => rule.action === "BUY")) return "At least one BUY rule is required";
+  if (!payload.rules.some((rule) => rule.action === "SELL")) return "At least one SELL rule is required";
+
+  for (const rule of payload.rules) {
+    if (!rule.conditions.length) return `Rule ${rule.action} must contain at least one condition`;
+
+    for (const condition of rule.conditions) {
+      if (!condition.indicatorA) return "Indicator A is required";
+      if (!condition.operator) return "Operator is required";
+      if (!condition.indicatorBType) return "Indicator B type is required";
+      if (!condition.indicatorBValue) return "Indicator B value is required";
+
+      if (needsPeriod(condition.indicatorA) && !condition.indicatorAParams?.period?.trim()) {
+        return `Indicator A period is required for ${condition.indicatorA}`;
+      }
+
+      if (
+        condition.indicatorBType === "INDICATOR" &&
+        needsPeriod(condition.indicatorBValue) &&
+        !condition.indicatorBParams?.period?.trim()
+      ) {
+        return `Indicator B period is required for ${condition.indicatorBValue}`;
+      }
+    }
+  }
+
+  return null;
+}
+
 export function StrategyBuilder() {
   const router = useRouter();
   const mutation = useCreateStrategy();
@@ -65,15 +153,8 @@ export function StrategyBuilder() {
     }));
   }
 
-  function validatePayload(payload: CreateStrategyRequest) {
-    if (!payload.name.trim()) return "Strategy name is required";
-    if (payload.rules.length === 0) return "At least one rule is required";
-    if (!payload.rules.some((rule) => rule.action === "BUY")) return "At least one BUY rule is required";
-    if (!payload.rules.some((rule) => rule.action === "SELL")) return "At least one SELL rule is required";
-    return null;
-  }
-
-  const validationMessage = validatePayload(form);
+  const normalizedForm = normalizePayload(form);
+  const validationMessage = validatePayload(normalizedForm);
 
   return (
     <div className="space-y-6">
@@ -81,18 +162,30 @@ export function StrategyBuilder() {
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="field-label">Strategy name</label>
-            <input className="field-input" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} />
+            <input
+              className="field-input"
+              value={form.name}
+              onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))}
+            />
           </div>
           <div>
             <label className="field-label">Description</label>
-            <input className="field-input" value={form.description ?? ""} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} />
+            <input
+              className="field-input"
+              value={form.description ?? ""}
+              onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))}
+            />
           </div>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <button className="secondary-btn" type="button" onClick={() => addRule("BUY")}>Add BUY rule</button>
-        <button className="secondary-btn" type="button" onClick={() => addRule("SELL")}>Add SELL rule</button>
+        <button className="secondary-btn" type="button" onClick={() => addRule("BUY")}>
+          Add BUY rule
+        </button>
+        <button className="secondary-btn" type="button" onClick={() => addRule("SELL")}>
+          Add SELL rule
+        </button>
       </div>
 
       {form.rules.map((rule, ruleIndex) => (
@@ -113,18 +206,26 @@ export function StrategyBuilder() {
             <ConditionRow
               key={`${ruleIndex}-${conditionIndex}`}
               condition={condition}
-              onChange={(next) => updateRule(ruleIndex, {
-                ...rule,
-                conditions: rule.conditions.map((currentCondition, index) => (index === conditionIndex ? next : currentCondition)),
-              })}
-              onRemove={() => updateRule(ruleIndex, {
-                ...rule,
-                conditions: rule.conditions.filter((_, index) => index !== conditionIndex),
-              })}
+              onChange={(next) =>
+                updateRule(ruleIndex, {
+                  ...rule,
+                  conditions: rule.conditions.map((currentCondition, index) =>
+                    index === conditionIndex ? next : currentCondition,
+                  ),
+                })
+              }
+              onRemove={() =>
+                updateRule(ruleIndex, {
+                  ...rule,
+                  conditions: rule.conditions.filter((_, index) => index !== conditionIndex),
+                })
+              }
             />
           ))}
 
-          <button className="secondary-btn" type="button" onClick={() => addCondition(ruleIndex)}>Add condition</button>
+          <button className="secondary-btn" type="button" onClick={() => addCondition(ruleIndex)}>
+            Add condition
+          </button>
         </RuleCard>
       ))}
 
@@ -136,9 +237,11 @@ export function StrategyBuilder() {
           className="primary-btn"
           type="button"
           disabled={Boolean(validationMessage) || mutation.isPending}
-          onClick={() => mutation.mutate(form, {
-            onSuccess: () => router.push("/strategies"),
-          })}
+          onClick={() =>
+            mutation.mutate(normalizedForm, {
+              onSuccess: () => router.push("/strategies"),
+            })
+          }
         >
           {mutation.isPending ? "Saving strategy..." : "Save strategy"}
         </button>

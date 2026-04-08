@@ -32,10 +32,7 @@ public class MarketDataController {
     }
 
     @GetMapping("/{symbol}/internal")
-    public ResponseEntity<String> getMarketDataInternal(
-            @PathVariable String symbol,
-            @RequestHeader("X-User-Email") String userEmail) {
-
+    public ResponseEntity<String> getMarketDataInternal(@PathVariable String symbol) {
         Optional<BigDecimal> price = marketDataService.getLatestPrice(symbol.toUpperCase());
 
         return price.map(bigDecimal -> ResponseEntity.ok(bigDecimal.toString()))
