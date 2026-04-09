@@ -255,4 +255,3 @@ TradeWise is built as a system design-first project, not just a feature-driven a
 ---
 
 *Prepared by Utkarsh Alshi*
-```
