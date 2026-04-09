@@ -21,7 +21,9 @@ It is a system design-focused platform that simulates how real-world trading sys
 
 ## Demo
 
-Watch full system demo: *(Add Loom/YouTube link here)*
+Watch full system demo:
+
+https://github.com/user-attachments/assets/5c8b6113-e8f8-4f10-8def-987a19e0bd1f
 
 Demo covers:
 - Full system startup (Docker → all services)
