@@ -131,7 +131,8 @@ flowchart TB
 
 ### Static Diagram (Mobile Friendly)
 
-![Architecture](./assets/architecture.png)
+<img width="3486" height="2434" alt="mermaid-diagram" src="https://github.com/user-attachments/assets/f87480f5-f77c-41d0-a036-1e9256e0868f" />
+
 
 ---
 
