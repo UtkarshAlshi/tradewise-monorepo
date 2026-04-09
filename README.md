@@ -1,4 +1,3 @@
-```markdown
 # TradeWise
 **Distributed Algorithmic Trading Simulation Platform**
 
