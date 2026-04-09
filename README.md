@@ -39,37 +39,94 @@ Demo covers:
 ### Interactive Diagram (Best for Desktop)
 
 ```mermaid
-flowchart LR
-    U[User]
-    FE[Frontend Dashboard]
+flowchart TB
+    %% =========================
+    %% CLIENT
+    %% =========================
+    subgraph CLIENT["Client Layer"]
+        U[User]
+        FE[Frontend Dashboard<br/>Next.js + TypeScript]
+        U --> FE
+    end
 
-    GW[API Gateway]
+    %% =========================
+    %% GATEWAY
+    %% =========================
+    subgraph GATEWAY["Gateway Layer"]
+        GW[API Gateway<br/>Spring Cloud Gateway<br/>JWT Authentication + Routing]
+    end
 
-    US[User Service]
-    PS[Portfolio Service]
-    SS[Strategy Service]
-    MDS[Market Data Service]
-    BTS[Backtesting Service]
-    NS[Notification Service]
-    LS[Leaderboard Service]
+    FE --> GW
 
-    K[(Kafka)]
-    PG[(PostgreSQL)]
+    %% =========================
+    %% CORE SERVICES
+    %% =========================
+    subgraph SERVICES["Core Microservices"]
+        US[User Service<br/>Auth + User Info]
+        PS[Portfolio Service<br/>Portfolios + Assets]
+        SS[Strategy Service<br/>Strategies + Rules]
+        BS[Backtesting Service<br/>ta4j Simulation Engine]
+        MDS[Market Data Service<br/>Live + Historical Prices]
+        LS[Leaderboard Service<br/>Portfolio Ranking]
+        NS[Notification Service<br/>Kafka Consumer + WebSocket Push]
+    end
 
-    U --> FE --> GW
+    %% =========================
+    %% STORAGE
+    %% =========================
+    subgraph STORAGE["Data Layer"]
+        UDB[(User DB)]
+        PDB[(Portfolio DB)]
+        SDB[(Strategy DB)]
+        NDB[(Notification DB)]
+    end
+
+    %% =========================
+    %% STREAMING
+    %% =========================
+    subgraph STREAMING["Messaging Layer"]
+        K[(Apache Kafka)]
+    end
+
+    %% =========================
+    %% EXTERNAL
+    %% =========================
+    subgraph EXTERNAL["External Providers"]
+        FH[Finnhub]
+        AV[AlphaVantage]
+    end
+
+    %% Gateway routes
     GW --> US
     GW --> PS
     GW --> SS
-    GW --> BTS
+    GW --> BS
     GW --> LS
+    GW --> NS
+    GW --> MDS
 
+    %% DB ownership
+    US --> UDB
+    PS --> PDB
+    SS --> SDB
+    NS --> NDB
+
+    %% Internal sync calls
+    BS --> SS
+    BS --> MDS
+    LS --> PS
+    LS --> MDS
+    US --> PS
+    US --> SS
+
+    %% External ingestion
+    FH --> MDS
+    AV --> MDS
+
+    %% Async realtime path
     MDS --> K
     K --> NS
     NS --> FE
-
-    BTS --> MDS
-    LS --> PS
-    LS --> MDS
 ```
 
 ### Static Diagram (Mobile Friendly)
