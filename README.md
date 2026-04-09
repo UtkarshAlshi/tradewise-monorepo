@@ -1,49 +1,50 @@
+```markdown
 # TradeWise
+**Distributed Algorithmic Trading Simulation Platform**
 
-TradeWise is a microservices-based algorithmic trading simulation platform that allows users to:
-
-- register and authenticate securely
-- create portfolios and manage assets
-- define rule-based trading strategies
-- backtest strategies against historical market data
-- view leaderboard rankings
-- receive realtime notifications and live price updates
-
-The platform is built to explore distributed systems design, event-driven architectures, internal service contracts, realtime data pipelines, and full-stack fintech system design.
+A production-style fintech system built using microservices, event-driven architecture, and real-time data pipelines.
 
 ---
 
-## Overview
+## Why This Project Exists
 
-TradeWise is designed as a distributed system with an API Gateway in front of multiple domain-specific services.
+TradeWise is not just a CRUD application.
 
-It combines:
+It is a system design-focused platform that simulates how real-world trading systems handle:
 
-- synchronous request/response communication for CRUD, authentication, and backtesting
-- asynchronous Kafka-based messaging for realtime updates
-- WebSocket/STOMP for frontend realtime delivery
-- logically isolated PostgreSQL databases per service
-- a unified frontend consuming everything through the gateway
-
-The backend supports a complete end-to-end trading simulation flow:
-
-1. Register and log in
-2. Create a portfolio
-3. Add assets
-4. Create a strategy
-5. Run a backtest
-6. View leaderboard and realtime updates
+- Distributed services
+- Real-time market data
+- Asynchronous messaging
+- Strategy execution engines
+- Portfolio analytics
 
 ---
 
-## Architecture Diagram
+## Demo
+
+Watch full system demo: *(Add Loom/YouTube link here)*
+
+Demo covers:
+- Full system startup (Docker → all services)
+- Authentication flow (JWT)
+- Portfolio creation & asset management
+- Strategy creation (RSI-based rules)
+- Backtesting execution
+- Leaderboard ranking
+- Realtime updates (Kafka + WebSocket)
+
+---
+
+## Architecture
+
+### Interactive Diagram (Best for Desktop)
 
 ```mermaid
 flowchart LR
     U[User]
-    FE[Frontend Dashboard<br/>Next.js + TypeScript]
+    FE[Frontend Dashboard]
 
-    GW[API Gateway<br/>Spring Cloud Gateway]
+    GW[API Gateway]
 
     US[User Service]
     PS[Portfolio Service]
@@ -53,115 +54,92 @@ flowchart LR
     NS[Notification Service]
     LS[Leaderboard Service]
 
-    K[(Apache Kafka)]
+    K[(Kafka)]
+    PG[(PostgreSQL)]
 
-    PGU[(User DB)]
-    PGP[(Portfolio DB)]
-    PGS[(Strategy DB)]
-    PGN[(Notification DB)]
-
-    FH[Finnhub]
-    AV[AlphaVantage]
-
-    U --> FE
-    FE --> GW
-
+    U --> FE --> GW
     GW --> US
     GW --> PS
     GW --> SS
-    GW --> MDS
     GW --> BTS
-    GW --> NS
     GW --> LS
 
-    US --> PGU
-    PS --> PGP
-    SS --> PGS
-    NS --> PGN
-
-    BTS --> SS
-    BTS --> MDS
-
-    LS --> PS
-    LS --> MDS
-
-    FH --> MDS
-    AV --> MDS
     MDS --> K
     K --> NS
-
     NS --> FE
+
+    BTS --> MDS
+    LS --> PS
+    LS --> MDS
 ```
+
+### Static Diagram (Mobile Friendly)
+
+![Architecture](./assets/architecture.png)
 
 ---
 
 ## Service Breakdown
 
-| Service                | Port | Responsibility |
-|----------------------|------|----------------|
-| API Gateway          | 8000 | JWT validation, routing, CORS |
-| User Service         | 8081 | Auth, user info, dashboard aggregation |
-| Portfolio Service    | 8082 | Portfolio + asset management |
-| Strategy Service     | 8083 | Strategy creation and storage |
-| Market Data Service  | 8084 | Historical + realtime data ingestion |
-| Backtesting Service  | 8085 | Strategy simulation (ta4j) |
-| Notification Service | 8086 | Kafka consumer + WebSocket delivery |
-| Leaderboard Service  | 8087 | Ranking aggregation |
+Each service is independently deployable, owns its data, and communicates via REST or Kafka.
+
+| Service              | Port | Role            | Key Responsibility                              |
+|----------------------|------|-----------------|-------------------------------------------------|
+| API Gateway          | 8000 | Entry Layer     | JWT auth, routing, request filtering            |
+| User Service         | 8081 | Identity        | Authentication, user info, dashboard aggregation|
+| Portfolio Service    | 8082 | Core Domain     | Portfolio & asset lifecycle                     |
+| Strategy Service     | 8083 | Core Domain     | Rule-based trading strategies                   |
+| Market Data Service  | 8084 | Data Ingestion  | Live + historical market data                   |
+| Backtesting Service  | 8085 | Compute         | Strategy simulation engine (ta4j)               |
+| Notification Service | 8086 | Event Consumer  | Kafka → WebSocket delivery                      |
+| Leaderboard Service  | 8087 | Aggregation     | Portfolio ranking + caching                     |
 
 ---
 
-## Core Flows
+## Core System Flows
 
 ### 1. Authentication Flow
-- User registers and logs in via gateway
-- JWT is issued and validated at gateway
-- Gateway forwards user identity downstream
-- Services trust forwarded identity
-
----
+- User registers & logs in via API Gateway
+- JWT issued and validated centrally
+- Identity propagated via headers
 
 ### 2. Portfolio Flow
 - Create portfolio
 - Add assets (e.g., IBM)
-- Ownership enforced via user identity
-
----
+- Ownership enforced per user
 
 ### 3. Strategy Flow
-- Create rule-based strategies
-- Stored using internal DTO contracts
-- Designed for compatibility with backtesting engine
-
----
+- Define BUY / SELL rule groups
+- Indicators supported:
+  - PRICE
+  - SMA
+  - EMA
+  - RSI
 
 ### 4. Backtesting Flow
 - Fetch strategy from Strategy Service
 - Fetch historical data from Market Data Service
-- Translate rules into ta4j indicators
-- Execute simulation
+- Execute simulation using ta4j
 
 Returns:
-- total trades
-- profit/loss
-- return %
-- win rate
-- max drawdown
-
----
+- Total trades
+- Profit/loss
+- Return %
+- Win rate
+- Max drawdown
 
 ### 5. Realtime Flow
-- Market data from Finnhub → Market Data Service
+- Finnhub → Market Data Service
 - Published to Kafka
 - Notification Service consumes events
-- Delivered via WebSocket/STOMP to frontend
-
----
+- Delivered to frontend via WebSocket
 
 ### 6. Leaderboard Flow
-- Fetch portfolio + market data
-- Compute rankings
+- Fetch portfolios + assets
+- Fetch current prices
+- Compute returns
+- Rank portfolios
 - Cache results
-- Expose via API
 
 ---
 
@@ -190,97 +168,6 @@ Returns:
 
 ---
 
-## Key Design Decisions
-
-### Gateway-first security
-All client traffic flows through the gateway. JWT validation is centralized.
-
----
-
-### Internal service contracts
-Explicit DTOs are used for service-to-service communication to avoid coupling.
-
----
-
-### Event-driven architecture
-Kafka decouples market data ingestion from notification delivery.
-
----
-
-### Database isolation
-Each service owns its data:
-
-- tradewise_user_db
-- tradewise_portfolio_db
-- tradewise_strategy_db
-- tradewise_notification_db
-
----
-
-### Internal endpoints
-Backend services expose internal APIs for trusted communication (not user-facing).
-
----
-
-## Implemented Features
-
-### Authentication
-- Register
-- Login (JWT)
-- Authenticated user fetch
-
-### Portfolio
-- Create portfolio
-- Add/remove assets
-- List assets
-
-### Strategy
-- BUY/SELL rule groups
-- Indicators:
-  - PRICE
-  - SMA
-  - EMA
-  - RSI
-
-### Backtesting
-- Historical simulation
-- ta4j integration
-- Performance metrics
-
-### Leaderboard
-- Portfolio ranking
-- Aggregation service
-
-### Realtime
-- Kafka-based updates
-- WebSocket subscriptions
-
----
-
-## Project Structure
-
-```
-backend/
-  api-gateway/
-  user-service/
-  portfolio-service/
-  strategy-service/
-  market-data-service/
-  backtesting-service/
-  notification-service/
-  leaderboard-service/
-
-frontend/
-  tradewise-client/
-
-docker-compose.yml
-init.sql
-start.sh
-README.md
-```
-
----
-
 ## Running the Project
 
 ### Prerequisites
@@ -288,40 +175,21 @@ README.md
 - Node.js 18+
 - npm
 
----
-
 ### Start Backend
-
 ```bash
-docker compose down -v --remove-orphans
 docker compose up --build -d
-docker compose ps
 ```
 
----
-
 ### Start Frontend
-
 ```bash
 cd frontend/tradewise-client
 npm install
 npm run dev
 ```
 
----
-
 ### Access
-
-- Frontend → http://localhost:3000  
-- Gateway → http://localhost:8000  
-
----
-
-### Startup Helper
-
-```bash
-./start.sh
-```
+- Frontend: http://localhost:3000
+- API Gateway: http://localhost:8000
 
 ---
 
@@ -335,130 +203,57 @@ npm run dev
 6. Create strategy
 7. Run backtest
 8. Check leaderboard
-9. Verify realtime updates
+9. Observe realtime updates
 
 ---
 
-## Example User Journey
+## What Makes This Project Strong
 
-1. Register  
-2. Login (JWT issued)  
-3. Create portfolio  
-4. Add asset (IBM)  
-5. Create strategy:  
-   - BUY: RSI < 30  
-   - SELL: RSI > 70  
-6. Run backtest  
-7. View results  
+This project demonstrates:
 
----
-
-## Configuration Notes
-
-### Gateway
-All frontend requests must go through the gateway.
+- Microservices architecture
+- Gateway-based authentication
+- Event-driven systems (Kafka)
+- Realtime streaming (WebSockets)
+- Distributed system design
+- Fintech-style workflows
 
 ---
 
-### WebSocket
+## Challenges Solved
 
-Endpoint:
-```
-/ws
-```
-
-Subscriptions:
-```
-/user/queue/notifications
-/topic/prices/{symbol}
-```
-
----
-
-### Docker Networking
-
-Services communicate using:
-
-```
-strategy-service:8083
-market-data-service:8084
-portfolio-service:8082
-```
-
----
-
-## Current Status
-
-### Working
-- Dockerized backend
-- JWT authentication
-- Portfolio + assets
-- Strategy creation
-- Backtesting
-- Leaderboard structure
-- Kafka + notifications
-
-### Frontend (In Progress)
-- Dashboard UX
-- Strategy builder
-- Leaderboard UI
-- Realtime updates
-
----
-
-## Known Limitations
-
-- Simplified notification triggers
-- Leaderboard not optimized for high-frequency updates
-- Basic backtesting metrics
-- No distributed tracing
-- No centralized logging
-- No production-grade secret management
+- Strategy to Backtesting contract mismatch
+- Inter-service communication design
+- Leaderboard consistency & caching
+- Docker orchestration
+- Real-time data synchronization
 
 ---
 
 ## Future Improvements
 
-- Real trading signals (not simulated)
-- Advanced analytics dashboard
-- Trade history + equity curves
-- Distributed tracing
+- Distributed tracing (Zipkin / Jaeger)
 - Centralized logging
-- Contract testing
 - Kubernetes deployment
 - Broker API integration
+- Advanced analytics dashboards
 
 ---
 
-## Why this project matters
+## Key Learnings
 
-TradeWise demonstrates:
-
-- microservices architecture
-- gateway-based authentication
-- event-driven systems (Kafka)
-- realtime streaming (WebSockets)
-- distributed system design
-- fintech-style product workflows
-
-This makes it a strong backend + system design portfolio project.
+- Designing loosely coupled systems
+- Handling async vs sync flows
+- Building resilient distributed systems
+- Thinking in terms of service boundaries
 
 ---
 
-## Development Notes
+## Note
 
-Key improvements made during development:
-
-- fixed strategy/backtesting contract mismatch
-- introduced internal service APIs
-- improved Docker orchestration
-- standardized service configs
-- refined service boundaries
-
-These changes transformed the system into a stable, production-like architecture.
+TradeWise is built as a system design-first project, not just a feature-driven app. It reflects how real-world fintech systems are structured and scaled.
 
 ---
 
-## License
-
-This project is intended for educational and portfolio purposes.
+*Prepared by Utkarsh Alshi*
+```
